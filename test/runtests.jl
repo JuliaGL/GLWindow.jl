@@ -2,4 +2,6 @@ using GLWindow
 using Base.Test  
 
 # write your own tests here
-@test 1 == 1
+@test createWindow() == 1
+
+println("    \033[32;1mSUCCESS\033[0m")
