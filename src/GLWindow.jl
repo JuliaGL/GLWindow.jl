@@ -20,7 +20,16 @@ function displayFunc()
 end
 
 glDisplay(x::GLRenderObject) = push!(RENDER_LIST, x)
+export glDisplay
 
+
+function closeFunc()
+    println("bye...!")
+    for elem in RENDER_LIST
+       delete!(elem)
+    end
+    return nothing
+end
 
 #Cfunction pointer for glut
 _entryFunc          = cfunction(entryFunc, Void, (Cint,))
@@ -33,6 +42,7 @@ _keyboardFunc       = cfunction(keyboardFunc, Void, (Cuchar, Cint, Cint))
 _keyboardUpFunc     = cfunction(keyboardUpFunc, Void, (Cuchar, Cint, Cint))
 _reshapeFunc        = cfunction(reshapeFunc, Void, (Csize_t, Csize_t))
 _displayFunc        = cfunction(displayFunc, Void, ())
+_closeFunc          = cfunction(closeFunc, Void, ())
 
 
 function createWindow(;
@@ -65,6 +75,7 @@ function createWindow(;
     motionF          && glutMotionFunc        (_motionFunc)
     passiveMotionF   && glutPassiveMotionFunc (_passiveMotionFunc)
     entryF           && glutEntryFunc         (_entryFunc)
+    glutCloseFunc(_closeFunc)
 
     (keyboardUpF | specialUpF) && glutSetKeyRepeat(GLUT_KEY_REPEAT_OFF)
     window
