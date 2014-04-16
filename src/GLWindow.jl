@@ -5,7 +5,7 @@ using ModernGL, GLUT, GLUtil, Events
 
 include("glutEvents.jl")
 
-global RENDER_LIST = GLRenderObject[]
+global RENDER_LIST = Renderable[]
 
 function displayFunc()
     glClearColor(1f0, 1f0, 1f0, 1f0)   
@@ -18,7 +18,7 @@ function displayFunc()
     return nothing
 end
 
-glDisplay(x::GLRenderObject) = push!(RENDER_LIST, x)
+glDisplay(x::Renderable) = push!(RENDER_LIST, x)
 export glDisplay
 
 
@@ -76,7 +76,7 @@ function createWindow(;
     entryF           && glutEntryFunc         (_entryFunc)
     glutCloseFunc(_closeFunc)
 
-    (keyboardUpF | specialUpF) && glutSetKeyRepeat(GLUT_KEY_REPEAT_OFF)
+    #(keyboardUpF | specialUpF) && glutSetKeyRepeat(GLUT_KEY_REPEAT_OFF)
     window
 end
 
