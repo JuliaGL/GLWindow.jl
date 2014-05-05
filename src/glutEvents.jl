@@ -28,7 +28,7 @@ function mouseFunc(button::Cint, status::Cint, x::Cint, y::Cint)
     return nothing
 end
 function motionFunc(x::Cint, y::Cint)
-    publishEvent(MouseMovingClicked{0}(lastClick, int(x), WINDOW_SIZE[2] - int(y)))
+    publishEvent(MouseDragged{0}(lastClick, int(x), WINDOW_SIZE[2] - int(y)))
     return nothing
 end
 

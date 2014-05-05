@@ -46,7 +46,7 @@ _closeFunc          = cfunction(closeFunc, Void, ())
 
 function createWindow(;
     name = "GLUT Window", 
-    displayMode         = convert(Cint, (GLUT_DEPTH | GLUT_DOUBLE | GLUT_RGBA | GLUT_MULTISAMPLE | GLUT_ALPHA)), 
+    displayMode         = convert(Cint, (GLUT_DEPTH | GLUT_DOUBLE | GLUT_RGBA | GLUT_MULTISAMPLE | GLUT_ALPHA | GLUT_STENCIL)), 
     windowPosition      = convert(Array{Cint,1}, [0,0]), 
     windowSize          = convert(Array{Cint,1}, [1000,1000]),
     displayF=true, idleF=true, reshapeF=true, 
