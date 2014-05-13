@@ -1,11 +1,11 @@
 module GLWindow
 using ModernGL, GLUT, GLUtil, Events
-
-
+export glDisplay, glRemove
 
 include("glutEvents.jl")
 
-global RENDER_LIST = Renderable[]
+global const RENDER_LIST = Renderable[]
+global const RENDER_DICT = Dict{ASCIIString, Tuple}()
 
 function displayFunc()
     glClearColor(1f0, 1f0, 1f0, 1f0)   
@@ -14,16 +14,29 @@ function displayFunc()
     for elem in RENDER_LIST
        render(elem)
     end
+    for elem in RENDER_DICT
+       render(elem[2]...)
+    end
     glutSwapBuffers()
     return nothing
 end
 
-glDisplay(x::Renderable) = push!(RENDER_LIST, x)
-export glDisplay
 
+function glDisplay(x::Renderable)
+    push!(RENDER_LIST, x)
+    nothing
+end
+function glDisplay(id::String, x::Tuple) 
+    RENDER_DICT[id] = x
+    nothing
+end
+function glRemove(id::ASCIIString)
+    delete!(RENDER_DICT, id)
+    nothing
+end
 
 function closeFunc()
-    println("bye...!")
+    println("kthxbye...!")
     for elem in RENDER_LIST
        delete!(elem)
     end
@@ -47,8 +60,8 @@ _closeFunc          = cfunction(closeFunc, Void, ())
 function createWindow(;
     name = "GLUT Window", 
     displayMode         = convert(Cint, (GLUT_DEPTH | GLUT_DOUBLE | GLUT_RGBA | GLUT_MULTISAMPLE | GLUT_ALPHA | GLUT_STENCIL)), 
-    windowPosition      = convert(Array{Cint,1}, [0,0]), 
-    windowSize          = convert(Array{Cint,1}, [1000,1000]),
+    windowPosition      = Cint[0,0], 
+    windowSize          = Cint[1000,1000],
     displayF=true, idleF=true, reshapeF=true, 
     entryF=true, keyboardF=true, specialF=true,
     keyboardUpF=true, specialUpF=true, mouseF=true, 

@@ -79,3 +79,13 @@ end
 registerEventAction(EventAction{KeyDown}		(x-> true, (), fillCurrentKeyDown, (1,)))
 registerEventAction(EventAction{KeyUp}			(x-> true, (), fillCurrentKeyDown, (0,)))
 registerEventAction(EventAction{MouseClicked} 	(x-> true, (), fillCurrentMouseClicked, ()))
+
+
+left_click_down(event::MouseClicked) = event.key == 0 && event.status == 0
+
+middle_click_down_inside(event::MouseDragged, rect) = event.start.key == 1 && event.start.status == 0 && inside(rect, event.start.x, event.start.y)
+right_click_down_inside(event::MouseDragged, rect) = event.start.key == 2 && event.start.status == 0 && inside(rect, event.start.x, event.start.y)
+
+left_click_up(event::MouseClicked) = event.key == 0 && event.status == 1
+
+export left_click_up, right_click_down_inside, middle_click_down_inside, left_click_down
