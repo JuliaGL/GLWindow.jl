@@ -1,6 +1,8 @@
 using GLFW
 import GLFW.Window
-export UnicodeInput, KeyPressed, MouseClicked, MouseMoved, EnteredWindow, WindowResized, MouseDragged
+export UnicodeInput, KeyPressed, MouseClicked, MouseMoved, EnteredWindow, WindowResized
+export MouseDragged, Scrolled, Window, renderloop, leftbuttondragged, middlebuttondragged, rightbuttondragged
+
 
 immutable UnicodeInput{T} <: Event
 	source::T
@@ -18,9 +20,17 @@ immutable MouseClicked{T} <: Event
 	button::Int
 	actions::Int
 	mods::Int
+	x::Float64
+	y::Float64
 end
 immutable MouseMoved{T} <: Event
 	source::T
+	x::Float64
+	y::Float64
+end
+immutable MouseDragged{T} <: Event
+	source::T
+	start::MouseClicked
 	x::Float64
 	y::Float64
 end
@@ -33,10 +43,13 @@ immutable WindowResized{T} <: Event
 	w::Int
 	h::Int
 end
+immutable WindowClosed{T} <: Event
+	source::T
+end
 immutable Scrolled{T} <: Event
 	source::T
-	xOffet::Float64
-	yOffet::Float64
+	xOffset::Float64
+	yOffset::Float64
 end
 
 
@@ -44,9 +57,7 @@ const EVENT_HISTORY = Dict{DataType, Any}()
 
 function window_closed(window)
     println("kthxbye...!")
-    for elem in RENDER_DICT
-       delete!(elem[2])
-    end
+    publishEvent(WindowClosed(window))
     return nothing
 end
 
@@ -62,15 +73,21 @@ function key_pressed(window::Window, key::Cint, scancode::Cint, action::Cint, mo
     publishEvent(KeyPressed(window, int(key), int(scancode), int(action), int(mods)))
 end
 function mouse_clicked(window::Window, button::Cint, actions::Cint, mods::Cint)
-	publishEvent(MouseClicked(window, int(button), int(actions), int(mods)))
+	position = get(EVENT_HISTORY, MouseMoved{Window}, MouseMoved(window, 0.0, 0.0))
+	event = MouseClicked(window, int(button), int(actions), int(mods), position.x, position.y)
+	publishEvent(event)
+	EVENT_HISTORY[typeof(event)] = event
 end
 
 function unicode_input(window::Window, c::Cuint)
 	publishEvent(UnicodeInput(window, char(c)))
+
 end
 
 function cursor_position(window::Window, x::Cdouble, y::Cdouble)
-	publishEvent(MouseMoved(window, float64(x), float64(y)))
+	event = MouseMoved(window, float64(x), float64(y))
+	publishEvent(event)
+	EVENT_HISTORY[typeof(event)] = event
 end
 function scroll(window::Window, xoffset::Cdouble, yoffset::Cdouble)
 	publishEvent(Scrolled(window, float64(xoffset), float64(yoffset)))
@@ -83,9 +100,20 @@ for elem in [WindowResized, KeyPressed, MouseClicked, UnicodeInput, MouseMoved, 
 	registerEventAction(elem{Window}, x -> true, x -> EVENT_HISTORY[typeof(x)] = x)
 end
 
-registerEventAction(EnteredWindow{Window}, x -> true, x -> println(EVENT_HISTORY))
+leftbuttondragged(event::MouseDragged) 		= event.start.button == 0
+middlebuttondragged(event::MouseDragged) 	= event.start.button == 2
+rightbuttondragged(event::MouseDragged) 	= event.start.button == 1
 
 
+function isdragged(event::MouseMoved)
+	if haskey(EVENT_HISTORY, MouseClicked{Window})
+		pastClick = EVENT_HISTORY[MouseClicked{Window}]
+		if pastClick.actions == 1
+			publishEvent(MouseDragged(event.source, pastClick, event.x, event.y))
+		end
+	end
+end
+registerEventAction(MouseMoved{Window}, x -> true, isdragged)
 
 function renderloop(window)
 		# Loop until the user closes the window
@@ -125,8 +153,6 @@ function createWindow(size, name::ASCIIString)
 	GLFW.SetCursorEnterCallback(window, entered_window)
 
 	initGLUtils()	
-
-	@async renderloop(window)
 
 	window
 end
