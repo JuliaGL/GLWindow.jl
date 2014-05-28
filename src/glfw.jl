@@ -96,9 +96,6 @@ function entered_window(window::Window, entered::Cint)
 	publishEvent(EnteredWindow(window, entered == 1))
 end
 
-for elem in [WindowResized, KeyPressed, MouseClicked, UnicodeInput, MouseMoved, Scrolled, EnteredWindow]
-	registerEventAction(elem{Window}, x -> true, x -> EVENT_HISTORY[typeof(x)] = x)
-end
 
 leftbuttondragged(event::MouseDragged) 		= event.start.button == 0
 middlebuttondragged(event::MouseDragged) 	= event.start.button == 2
