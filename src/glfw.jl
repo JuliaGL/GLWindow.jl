@@ -1,7 +1,7 @@
 using GLFW
 import GLFW.Window
 export UnicodeInput, KeyPressed, MouseClicked, MouseMoved, EnteredWindow, WindowResized
-export MouseDragged, Scrolled, Window, renderloop, leftbuttondragged, middlebuttondragged, rightbuttondragged
+export MouseDragged, Scrolled, Window, renderloop, leftbuttondragged, middlebuttondragged, rightbuttondragged, leftclickup, leftclickdown
 
 
 immutable UnicodeInput{T} <: Event
@@ -18,7 +18,7 @@ end
 immutable MouseClicked{T} <: Event
 	source::T
 	button::Int
-	actions::Int
+	action::Int
 	mods::Int
 	x::Float64
 	y::Float64
@@ -72,9 +72,9 @@ end
 function key_pressed(window::Window, key::Cint, scancode::Cint, action::Cint, mods::Cint)
     publishEvent(KeyPressed(window, int(key), int(scancode), int(action), int(mods)))
 end
-function mouse_clicked(window::Window, button::Cint, actions::Cint, mods::Cint)
+function mouse_clicked(window::Window, button::Cint, action::Cint, mods::Cint)
 	position = get(EVENT_HISTORY, MouseMoved{Window}, MouseMoved(window, 0.0, 0.0))
-	event = MouseClicked(window, int(button), int(actions), int(mods), position.x, position.y)
+	event = MouseClicked(window, int(button), int(action), int(mods), position.x, position.y)
 	publishEvent(event)
 	EVENT_HISTORY[typeof(event)] = event
 end
@@ -101,11 +101,13 @@ leftbuttondragged(event::MouseDragged) 		= event.start.button == 0
 middlebuttondragged(event::MouseDragged) 	= event.start.button == 2
 rightbuttondragged(event::MouseDragged) 	= event.start.button == 1
 
+leftclickdown(event::MouseClicked) = event.button == 0 && event.action == 1
+leftclickup(event::MouseClicked) = event.button == 0 && event.action == 0
 
 function isdragged(event::MouseMoved)
 	if haskey(EVENT_HISTORY, MouseClicked{Window})
 		pastClick = EVENT_HISTORY[MouseClicked{Window}]
-		if pastClick.actions == 1
+		if pastClick.action == 1
 			publishEvent(MouseDragged(event.source, pastClick, event.x, event.y))
 		end
 	end

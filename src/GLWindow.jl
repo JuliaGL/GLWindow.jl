@@ -8,7 +8,11 @@ global const RENDER_DICT = Dict{Symbol, Any}()
 
 function renderLoop()
     for elem in RENDER_DICT
-        render(elem[2]...)
+    	if isa(elem[2], Tuple)
+        	render(elem[2]...)
+        else
+        	render(elem[2])
+        end
     end
 end
 
