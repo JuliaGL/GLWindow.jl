@@ -117,7 +117,7 @@ registerEventAction(MouseMoved{Window}, x -> true, isdragged)
 function renderloop(window)
 		# Loop until the user closes the window
 	while !GLFW.WindowShouldClose(window)
-		glClearColor(1f0, 1f0, 1f0, 1f0)   
+		glClearColor(1f0, 1f0, 1f0, 0f0)   
 	    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 		
 	    renderLoop()
