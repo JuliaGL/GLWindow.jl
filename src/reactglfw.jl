@@ -1,120 +1,108 @@
-using GLFW, React
+using GLFW, React, ImmutableArrays, ModernGL
 import GLFW.Window
 export UnicodeInput, KeyPressed, MouseClicked, MouseMoved, EnteredWindow, WindowResized
 export MouseDragged, Scrolled, Window, renderloop, leftbuttondragged, middlebuttondragged, rightbuttondragged, leftclickup, leftclickdown
 
+
+include("enum.jl")
+
+immutable Monitor
+	name::ASCIIString
+	isprimary::Bool
+	position::Bool
+	physicalsize_w::Int
+	physicalsize_h::Int
+	gamma::Float64
+	gammaramp::GammaRamp
+	videomode::VidMode
+	videomode_supported::Vector{VidMode}
+end
 immutable Screen
 	id::Symbol
-	inputs::Dict{Symbol, Input}
 	parent::Screen
 	children::Vector{Screen}
+	inputs::Dict{Symbol, Input}
 	renderList::Vector{Any}
-	function Screen()
+	function Screen(id::Symbol,
+					children::Vector{Screen},
+					inputs::Dict{Symbol, Input},
+					renderList::Vector{Any})
+		parent = new()
+		new(id::Symbol, parent, children, inputs, renderList)
+	end
+	function Screen(id::Symbol,
+					parent::Screen,
+					children::Vector{Screen},
+					inputs::Dict{Symbol, Input},
+					renderList::Vector{Any})
+		new(id::Symbol, parent, children, inputs, renderList)
+	end
+end
+const ROOT_SCREEN = Screen(:root, Screen[], Dict{Symbol, Input}(), {})
+
+const WINDOW_TO_SCREEN_DICT = Dict{Window, Screen}()
+
+function update(window::Window, key::Symbol, value)
+	screen = WINDOW_TO_SCREEN_DICT[window]
+	input = screen.inputs[key]
+	if input.value != value
+		push!(input, value)
 	end
 end
 
-immutable UnicodeInput <: Event
-	char::Char
-end
-immutable KeyPressed <: Event
-	key::Int
-	scancode::Int
-	action::Int
-	mods::Int
-end
-immutable MouseClicked <: Event
-	button::Int
-	action::Int
-	mods::Int
-end
-immutable MouseMoved <: Event
-	x::Float64
-	y::Float64
-end
-immutable MouseDragged <: Event
-	start::MouseClicked
-	x::Float64
-	y::Float64
-end
-immutable EnteredWindow <: Event
-	entered::Bool
-end
-immutable WindowResized <: Event
-	w::Int
-	h::Int
-end
-immutable WindowClosed <: Event
-	closed::True
-end
-immutable Scrolled <: Event
-	xOffset::Float64
-	yOffset::Float64
-end
-
-const ROOT_SCREEN = 
-
-
 function window_closed(window)
-    println("kthxbye...!")
-    push!(WINDOW_EVENT_STREAM[(window, WindowClosed)], WindowClosed(True))
+	update(window, :open, false)
     return nothing
 end
 
-const WINDOW_SIZE = [0,0]
-function window_resized(window, w, h)
-	WINDOW_SIZE[1] = int(w)
-    WINDOW_SIZE[2] = int(h)
-    push!(WINDOW_EVENT_STREAM[(window, WindowResized)], WindowResized(int(w),int(h)))
+function window_resized(window, w::Cint, h::Cint)
+	update(window, :window_width, int(w))
+	update(window, :window_height, int(h))
+    return nothing
 end
 
-MousePosition 	= Input(Vec2(0,0))
-UnicodeInput	= Input('0')
-WindowWidth 	= Input(0)
-WindowHeight 	= Input(0)
-WindowPosX	 	= Input(0)
-WindowPosY	 	= Input(0)
+function window_position(window, x::Cint, y::Cint)
+	update(window, :windowposition_x, int(x))
+	update(window, :windowposition_y, int(y))
+    return nothing
+end
+
 
 function key_pressed(window::Window, key::Cint, scancode::Cint, action::Cint, mods::Cint)
-    push!(WINDOW_EVENT_STREAM[(window, KeyPressed)], KeyPressed(int(key), int(scancode), int(action), int(mods)))
+	update(window, :keyboardpressed, int(key))
+	update(window, :keyboardpressedstate, int(action))
+	update(window, :keyboardmodifiers, int(mods))
+
+	return nothing
 end
 function mouse_clicked(window::Window, button::Cint, action::Cint, mods::Cint)
-	push!(WINDOW_EVENT_STREAM[(window, MouseClicked)], MouseClicked(int(button), int(action), int(mods)))
+	update(window, :mousepressed, int(button))
+	update(window, :keyboardmodifiers, int(mods))
+	update(window, :mousepressedstate, int(action))
+
+	return nothing
 end
 
 function unicode_input(window::Window, c::Cuint)
-	push!(WINDOW_EVENT_STREAM[(window, UnicodeInput)],UnicodeInput(char(c)))
-
+	update(window, :unicodeinput, char(c))
+	return nothing
 end
 
 function cursor_position(window::Window, x::Cdouble, y::Cdouble)
-	event = MouseMoved(window, float64(x), float64(y))
-	push!(WINDOW_EVENT_STREAM[(window, WindowResized)],event)
-	EVENT_HISTORY[typeof(event)] = event
+	update(window, :mouseposition_x, float64(x))
+	update(window, :mouseposition_y, float64(y))
+
+	return nothing
 end
 function scroll(window::Window, xoffset::Cdouble, yoffset::Cdouble)
-	push!(WINDOW_EVENT_STREAM[(window, WindowResized)],Scrolled(window, float64(xoffset), float64(yoffset)))
+	update(window, :scrolldiff_x, int(xoffset))
+	update(window, :scrolldiff_y, int(yoffset))
+	return nothing
 end
 function entered_window(window::Window, entered::Cint)
-	push!(WINDOW_EVENT_STREAM[(window, WindowResized)],EnteredWindow(window, entered == 1))
+	update(window, :insidewindow, entered == 1)
+	return nothing
 end
-
-
-leftbuttondragged(event::MouseDragged) 		= event.start.button == 0
-middlebuttondragged(event::MouseDragged) 	= event.start.button == 2
-rightbuttondragged(event::MouseDragged) 	= event.start.button == 1
-
-leftclickdown(event::MouseClicked) = event.button == 0 && event.action == 1
-leftclickup(event::MouseClicked) = event.button == 0 && event.action == 0
-
-function isdragged(event::MouseMoved)
-	if haskey(EVENT_HISTORY, MouseClicked{Window})
-		pastClick = EVENT_HISTORY[MouseClicked{Window}]
-		if pastClick.action == 1
-			push!(WINDOW_EVENT_STREAM[(window, WindowResized)],MouseDragged(event.source, pastClick, event.x, event.y))
-		end
-	end
-end
-registerEventAction(MouseMoved{Window}, x -> true, isdragged)
 
 function renderloop(window)
 		# Loop until the user closes the window
@@ -122,38 +110,68 @@ function renderloop(window)
 		glClearColor(1f0, 1f0, 1f0, 0f0)   
 	    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 		
-	    renderLoop()
 
 		GLFW.SwapBuffers(window)
 		GLFW.PollEvents()
 	end
 	GLFW.Terminate()
 end
-
-
-function createWindow(size, name::ASCIIString)
-	GLFW.Init()
+function createWindow(name::Symbol, w, h)
 	GLFW.WindowHint(GLFW.SAMPLES, 4)
+	GLFW.WindowHint(GLFW.CONTEXT_VERSION_MAJOR, 3)
+	GLFW.WindowHint(GLFW.CONTEXT_VERSION_MINOR, 3)
+	GLFW.WindowHint(GLFW.OPENGL_FORWARD_COMPAT, GL_TRUE)
+	GLFW.WindowHint(GLFW.OPENGL_PROFILE, GLFW.OPENGL_CORE_PROFILE)
 
-	@osx_only begin
-		GLFW.WindowHint(GLFW.CONTEXT_VERSION_MAJOR, 3)
-		GLFW.WindowHint(GLFW.CONTEXT_VERSION_MINOR, 3)
-		glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE)
-		GLFW.WindowHint(GLFW.OPENGL_PROFILE, GLFW.OPENGL_CORE_PROFILE)
-	end 
-	window = GLFW.CreateWindow(size..., name)
+	window = GLFW.CreateWindow(w, h, string(name))
 	GLFW.MakeContextCurrent(window)
 
 	GLFW.SetWindowCloseCallback(window, window_closed)
 	GLFW.SetWindowSizeCallback(window, window_resized)
+	GLFW.SetWindowPosCallback(window, window_position)
 	GLFW.SetKeyCallback(window, key_pressed)
 	GLFW.SetCharCallback(window, unicode_input)
 	GLFW.SetMouseButtonCallback(window, mouse_clicked)
 	GLFW.SetCursorPosCallback(window, cursor_position)
 	GLFW.SetScrollCallback(window, scroll)
 	GLFW.SetCursorEnterCallback(window, entered_window)
+	inputs = Dict{Symbol,Input}([
+		:mouseposition_x		=> Input(0.0),
+		:mouseposition_y		=> Input(0.0),
 
-	initGLUtils()	
+		:unicodeinput			=> Input('0'),
 
-	window
+		:window_width			=> Input(0),
+		:window_height 			=> Input(0),
+		:windowposition_x		=> Input(0),
+		:windowposition_y		=> Input(0),
+
+		:keyboardmodifiers		=> Input(0),
+		:keyboardpressed 		=> Input(0),
+		:keyboardpressedstate	=> Input(0),
+		:mousepressed 			=> Input(0),
+		:mousepressedstate		=> Input(0),
+		:scrolldiff_x			=> Input(0),
+		:scrolldiff_y			=> Input(0),
+		:insidewindow 			=> Input(false),
+		:open 					=> Input(true)
+	])
+	println(typeof(inputs))
+	for elem in inputs
+		lift(Nothing, (x) -> println(elem[1], ": ", x), elem[2])
+	end
+	screen = Screen(name, ROOT_SCREEN, Screen[], inputs, {})
+	WINDOW_TO_SCREEN_DICT[window] = screen
+	#initGLUtils()
+	screen, window
 end
+
+GLFW.Init()
+
+
+
+
+const a,w = createWindow(:loley, 512, 512)
+
+
+renderloop(w)

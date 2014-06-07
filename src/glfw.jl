@@ -129,7 +129,7 @@ function renderloop(window)
 end
 
 
-function createWindow(size, name::ASCIIString)
+function createWindow(name::Symbol, w::Int, h::Int)
 	GLFW.Init()
 	GLFW.WindowHint(GLFW.SAMPLES, 4)
 
@@ -139,7 +139,7 @@ function createWindow(size, name::ASCIIString)
 		glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE)
 		GLFW.WindowHint(GLFW.OPENGL_PROFILE, GLFW.OPENGL_CORE_PROFILE)
 	end 
-	window = GLFW.CreateWindow(size..., name)
+	window = GLFW.CreateWindow(w,h, string(name))
 	GLFW.MakeContextCurrent(window)
 
 	GLFW.SetWindowCloseCallback(window, window_closed)
