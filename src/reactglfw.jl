@@ -1,5 +1,5 @@
-using GLFW, React, ImmutableArrays, ModernGL
-import GLFW.Window
+using GLFW, React, ImmutableArrays, ModernGL, GLUtil
+import GLFW.Window, GLUtil.update
 export UnicodeInput, KeyPressed, MouseClicked, MouseMoved, EnteredWindow, WindowResized
 export MouseDragged, Scrolled, Window, renderloop, leftbuttondragged, middlebuttondragged, rightbuttondragged, leftclickup, leftclickdown
 
@@ -13,9 +13,9 @@ immutable Monitor
 	physicalsize_w::Int
 	physicalsize_h::Int
 	gamma::Float64
-	gammaramp::GammaRamp
-	videomode::VidMode
-	videomode_supported::Vector{VidMode}
+	gammaramp::GLFW.GammaRamp
+	videomode::GLFW.VidMode
+	videomode_supported::Vector{GLFW.VidMode}
 end
 immutable Screen
 	id::Symbol
@@ -89,9 +89,10 @@ function unicode_input(window::Window, c::Cuint)
 end
 
 function cursor_position(window::Window, x::Cdouble, y::Cdouble)
-	update(window, :mouseposition_x, float64(x))
-	update(window, :mouseposition_y, float64(y))
-
+		screen = WINDOW_TO_SCREEN_DICT[window]
+		wh = screen.inputs[:window_height].value
+		update(window, :mouseposition_x, float64(x))
+		update(window, :mouseposition_y, wh - float64(y))
 	return nothing
 end
 function scroll(window::Window, xoffset::Cdouble, yoffset::Cdouble)
@@ -107,21 +108,19 @@ end
 function renderloop(window)
 		# Loop until the user closes the window
 	while !GLFW.WindowShouldClose(window)
-		glClearColor(1f0, 1f0, 1f0, 0f0)   
-	    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+		#test(shape)
 		
 
-		GLFW.SwapBuffers(window)
 		GLFW.PollEvents()
 	end
 	GLFW.Terminate()
 end
 function createWindow(name::Symbol, w, h)
 	GLFW.WindowHint(GLFW.SAMPLES, 4)
-	GLFW.WindowHint(GLFW.CONTEXT_VERSION_MAJOR, 3)
-	GLFW.WindowHint(GLFW.CONTEXT_VERSION_MINOR, 3)
-	GLFW.WindowHint(GLFW.OPENGL_FORWARD_COMPAT, GL_TRUE)
-	GLFW.WindowHint(GLFW.OPENGL_PROFILE, GLFW.OPENGL_CORE_PROFILE)
+	#GLFW.WindowHint(GLFW.CONTEXT_VERSION_MAJOR, 3)
+	#GLFW.WindowHint(GLFW.CONTEXT_VERSION_MINOR, 3)
+	#GLFW.WindowHint(GLFW.OPENGL_FORWARD_COMPAT, GL_TRUE)
+	#GLFW.WindowHint(GLFW.OPENGL_PROFILE, GLFW.OPENGL_CORE_PROFILE)
 
 	window = GLFW.CreateWindow(w, h, string(name))
 	GLFW.MakeContextCurrent(window)
@@ -156,22 +155,76 @@ function createWindow(name::Symbol, w, h)
 		:insidewindow 			=> Input(false),
 		:open 					=> Input(true)
 	])
-	println(typeof(inputs))
-	for elem in inputs
-		lift(Nothing, (x) -> println(elem[1], ": ", x), elem[2])
-	end
+
 	screen = Screen(name, ROOT_SCREEN, Screen[], inputs, {})
 	WINDOW_TO_SCREEN_DICT[window] = screen
+	w,h = GLFW.GetWindowSize(window)
+	update(window, :window_width, int(w))
+	update(window, :window_height, int(h))
+
 	#initGLUtils()
 	screen, window
 end
+
+
+
+
+function test(xy, shape, window)
+	x = xy.x
+	y = xy.y
+	glClearColor(1f0, 1f0, 1f0, 0f0)   
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+	
+	programID = shape.vertexArray.program.id
+	glUseProgram(programID)
+	render(shape.uniforms)
+
+	render(:model, Float32[rect.w 0 0 x ; 0 rect.h 0 y ; 0 0 1 0 ; 0 0 0 1], programID)
+	
+	glBindVertexArray(shape.vertexArray.id)
+	glDrawElements(GL_TRIANGLES, shape.vertexArray.indexLength, GL_UNSIGNED_INT, GL_NONE)
+	GLFW.SwapBuffers(window)
+	nothing
+end
+
 
 GLFW.Init()
 
 
 
 
-const a,w = createWindow(:loley, 512, 512)
+const screen, w = createWindow(:loley, 512, 512)
+
+rect = Rectangle(0.0,0.0,20.0,20.0)
+
+lift(Float64, x -> rect.x = x, screen.inputs[:mouseposition_x])
+lift(Float64, y -> rect.y = y, screen.inputs[:mouseposition_y])
+immutable vec2 
+	x::Int
+	y::Int
+end
+
+mousexy = lift(vec2, (x,y) -> vec2(int(x),int(y)), screen.inputs[:mouseposition_x], screen.inputs[:mouseposition_y])
+
+
+cam = OrthogonalCamera()
+
+flatshader = GLProgram("flatShader")
+const shape = RenderObject(
+[
+	:indexes 		=> GLBuffer(GLuint[0, 1, 2,  2, 3, 0], 1, bufferType = GL_ELEMENT_ARRAY_BUFFER),
+	:position		=> GLBuffer(GLfloat[0,0,  1,0,  1,1,  0,1], 2),
+	:uv				=> GLBuffer(GLfloat[0,1,  1,1,  1,0, 0,0], 2),
+	:vcolor 		=> GLBuffer([0f0 for i=1:16], 4),
+
+	:textureon		=> 0f0,
+	:border			=> 0f0,
+	:borderColor	=> Float32[0,0,0,1],
+	:mvp  			=> cam,
+	:model  		=> eye(Float32, 4, 4)
+], flatshader)
+
+lift(test, mousexy, Input(shape), Input(w))
 
 
 renderloop(w)
