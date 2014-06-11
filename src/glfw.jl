@@ -1,4 +1,4 @@
-using GLFW
+using GLFW, Events, GLUtil, ModernGL
 import GLFW.Window
 export UnicodeInput, KeyPressed, MouseClicked, MouseMoved, EnteredWindow, WindowResized
 export MouseDragged, Scrolled, Window, renderloop, leftbuttondragged, middlebuttondragged, rightbuttondragged, leftclickup, leftclickdown
@@ -85,7 +85,7 @@ function unicode_input(window::Window, c::Cuint)
 end
 
 function cursor_position(window::Window, x::Cdouble, y::Cdouble)
-	event = MouseMoved(window, float64(x), float64(y))
+	event = MouseMoved(window, float64(x), WINDOW_SIZE[2] - float64(y))
 	publishEvent(event)
 	EVENT_HISTORY[typeof(event)] = event
 end
@@ -117,28 +117,51 @@ registerEventAction(MouseMoved{Window}, x -> true, isdragged)
 function renderloop(window)
 		# Loop until the user closes the window
 	while !GLFW.WindowShouldClose(window)
-		glClearColor(1f0, 1f0, 1f0, 0f0)   
-	    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 		
-	    renderLoop()
+		
+	   	renderLoop()
 
 		GLFW.SwapBuffers(window)
 		GLFW.PollEvents()
 	end
 	GLFW.Terminate()
 end
+function openglerrorcallback(
+				source::GLenum, typ::GLenum,
+				id::GLuint, severity::GLenum,
+				length::GLsizei, message::Ptr{GLchar},
+				userParam::Ptr{Void}
+			)
+	errormessage = 	"\n"*
+					" ________________________________________________________________\n"* 
+					"|\n"*
+					"| OpenGL Error!\n"*
+					"| source: $(GLENUM(source).name) :: type: $(GLENUM(typ).name)\n"*
+					"| "*ascii(bytestring(message, length))*"\n"*
+					"|________________________________________________________________\n"
 
+	println(errormessage)
+	nothing
+end
+
+global const _openglerrorcallback = cfunction(openglerrorcallback, Void,
+										(GLenum, GLenum,
+										GLuint, GLenum,
+										GLsizei, Ptr{GLchar},
+										Ptr{Void}))
 
 function createWindow(name::Symbol, w::Int, h::Int)
 	GLFW.Init()
-	GLFW.WindowHint(GLFW.SAMPLES, 4)
+	GLFW.WindowHint(GLFW.SAMPLES, 8)
 
 	@osx_only begin
 		GLFW.WindowHint(GLFW.CONTEXT_VERSION_MAJOR, 3)
-		GLFW.WindowHint(GLFW.CONTEXT_VERSION_MINOR, 3)
-		glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE)
+		GLFW.WindowHint(GLFW.CONTEXT_VERSION_MINOR, 2)
+		GLFW.WindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE)
 		GLFW.WindowHint(GLFW.OPENGL_PROFILE, GLFW.OPENGL_CORE_PROFILE)
 	end 
+	GLFW.WindowHint(GLFW.OPENGL_DEBUG_CONTEXT, 1)
+
 	window = GLFW.CreateWindow(w,h, string(name))
 	GLFW.MakeContextCurrent(window)
 
@@ -152,6 +175,7 @@ function createWindow(name::Symbol, w::Int, h::Int)
 	GLFW.SetCursorEnterCallback(window, entered_window)
 
 	initGLUtils()	
+	glDebugMessageCallbackARB(_openglerrorcallback, C_NULL)
 
 	window
 end

@@ -1,22 +1,45 @@
 using GLFW, React, ImmutableArrays, ModernGL, GLUtil
-import GLFW.Window, GLUtil.update
+import GLFW.Window, GLUtil.update, GLFW.Monitor
 export UnicodeInput, KeyPressed, MouseClicked, MouseMoved, EnteredWindow, WindowResized
 export MouseDragged, Scrolled, Window, renderloop, leftbuttondragged, middlebuttondragged, rightbuttondragged, leftclickup, leftclickdown
 
 
 include("enum.jl")
 
-immutable Monitor
+immutable MonitorProperties
 	name::ASCIIString
 	isprimary::Bool
-	position::Bool
-	physicalsize_w::Int
-	physicalsize_h::Int
-	gamma::Float64
+	position::Vector2
+	physicalsize::Vector2
+	#gamma::Float64
 	gammaramp::GLFW.GammaRamp
 	videomode::GLFW.VidMode
 	videomode_supported::Vector{GLFW.VidMode}
+	dpi::Vector2
+	monitor::Monitor
 end
+
+function MonitorProperties(monitor::Monitor)
+	name 				= GLFW.GetMonitorName(monitor)
+	isprimary 			= GLFW.GetPrimaryMonitor() == monitor
+	position			= Vector2(GLFW.GetMonitorPos(monitor)...)
+	physicalsize		= Vector2(GLFW.GetMonitorPhysicalSize(monitor)...)
+	gammaramp 			= GLFW.GetGammaRamp(monitor)
+	videomode 			= GLFW.GetVideoMode(monitor)
+
+	dpi					= Vector2(videomode.width / 25.4, videomode.height / 25.4) ./ physicalsize
+	videomode_supported = GLFW.GetVideoModes(monitor)
+
+	MonitorProperties(name, isprimary, position, physicalsize, gammaramp, videomode, videomode_supported, dpi, monitor)
+end
+
+function Base.show(io::IO, m::MonitorProperties)
+	println(io, "name: ", m.name)
+	println(io, "physicalsize: ",  m.physicalsize[1], "x", m.physicalsize[2])
+	println(io, "resolution: ", m.videomode.width, "x", m.videomode.height)
+	println(io, "dpi: ", m.dpi[1], "x", m.dpi[2])
+end
+
 immutable Screen
 	id::Symbol
 	parent::Screen
@@ -109,8 +132,8 @@ function renderloop(window)
 		# Loop until the user closes the window
 	while !GLFW.WindowShouldClose(window)
 		#test(shape)
-		
-
+		test()
+		GLFW.SwapBuffers(window)
 		GLFW.PollEvents()
 	end
 	GLFW.Terminate()
@@ -169,9 +192,7 @@ end
 
 
 
-function test(xy, shape, window)
-	x = xy.x
-	y = xy.y
+function test()
 	glClearColor(1f0, 1f0, 1f0, 0f0)   
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 	
@@ -179,11 +200,10 @@ function test(xy, shape, window)
 	glUseProgram(programID)
 	render(shape.uniforms)
 
-	render(:model, Float32[rect.w 0 0 x ; 0 rect.h 0 y ; 0 0 1 0 ; 0 0 0 1], programID)
+	render(:model, Float32[rect.w 0 0 rect.x ; 0 rect.h 0 rect.y ; 0 0 1 0 ; 0 0 0 1], programID)
 	
 	glBindVertexArray(shape.vertexArray.id)
 	glDrawElements(GL_TRIANGLES, shape.vertexArray.indexLength, GL_UNSIGNED_INT, GL_NONE)
-	GLFW.SwapBuffers(window)
 	nothing
 end
 
@@ -191,20 +211,15 @@ end
 GLFW.Init()
 
 
-
-
+const monitors = map(MonitorProperties, GLFW.GetMonitors())
+println(monitors)
 const screen, w = createWindow(:loley, 512, 512)
 
 rect = Rectangle(0.0,0.0,20.0,20.0)
 
 lift(Float64, x -> rect.x = x, screen.inputs[:mouseposition_x])
 lift(Float64, y -> rect.y = y, screen.inputs[:mouseposition_y])
-immutable vec2 
-	x::Int
-	y::Int
-end
 
-mousexy = lift(vec2, (x,y) -> vec2(int(x),int(y)), screen.inputs[:mouseposition_x], screen.inputs[:mouseposition_y])
 
 
 cam = OrthogonalCamera()
@@ -224,7 +239,6 @@ const shape = RenderObject(
 	:model  		=> eye(Float32, 4, 4)
 ], flatshader)
 
-lift(test, mousexy, Input(shape), Input(w))
 
 
 renderloop(w)

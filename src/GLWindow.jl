@@ -8,15 +8,19 @@ global const RENDER_DICT = Dict{Symbol, Any}()
 
 function renderLoop()
     for elem in RENDER_DICT
-    	if isa(elem[2], Tuple)
-        	render(elem[2]...)
+        if isa(elem[2], Tuple)
+            if isa(elem[2][1], Function)
+                elem[2][1](elem[2][2:end]...)
+            else
+        	   render(elem[2]...)
+            end
         else
-        	render(elem[2])
+            render(elem[2]...)
         end
     end
 end
 
-function glDisplay(id::Symbol, x) 
+function glDisplay(id::Symbol, x...) 
     RENDER_DICT[id] = x
     nothing
 end
