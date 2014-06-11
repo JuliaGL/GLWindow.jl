@@ -136,7 +136,7 @@ function createWindow(name::Symbol, w::Int, h::Int)
 	@osx_only begin
 		GLFW.WindowHint(GLFW.CONTEXT_VERSION_MAJOR, 3)
 		GLFW.WindowHint(GLFW.CONTEXT_VERSION_MINOR, 3)
-		glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE)
+		GLFW.WindowHint(GLFW.OPENGL_FORWARD_COMPAT, GL_TRUE)
 		GLFW.WindowHint(GLFW.OPENGL_PROFILE, GLFW.OPENGL_CORE_PROFILE)
 	end 
 	window = GLFW.CreateWindow(w,h, string(name))
