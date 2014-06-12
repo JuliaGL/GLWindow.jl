@@ -1,5 +1,5 @@
 using GLFW, React, ImmutableArrays, ModernGL, GLUtil
-import GLFW.Window, GLUtil.update, GLFW.Monitor
+import GLFW.Window, GLUtil.update, GLFW.Monitor, GLUtil.render
 export UnicodeInput, KeyPressed, MouseClicked, MouseMoved, EnteredWindow, WindowResized
 export MouseDragged, Scrolled, Window, renderloop, leftbuttondragged, middlebuttondragged, rightbuttondragged, leftclickup, leftclickdown
 
@@ -45,19 +45,21 @@ immutable Screen
 	children::Vector{Screen}
 	inputs::Dict{Symbol, Any}
 	renderList::Vector{Any}
+	glfwWindow::Window
 	function Screen(id::Symbol,
 					children::Vector{Screen},
 					inputs::Dict{Symbol, Any},
 					renderList::Vector{Any})
 		parent = new()
-		new(id::Symbol, parent, children, inputs, renderList)
+		new(id::Symbol, parent, children, inputs, renderList, GLFW.NullWindow)
 	end
 	function Screen(id::Symbol,
 					parent::Screen,
 					children::Vector{Screen},
 					inputs::Dict{Symbol, Any},
-					renderList::Vector{Any})
-		new(id::Symbol, parent, children, inputs, renderList)
+					renderList::Vector{Any},
+					glfwWindow::Window)
+		new(id::Symbol, parent, children, inputs, renderList, glfwWindow)
 	end
 end
 const ROOT_SCREEN = Screen(:root, Screen[], Dict{Symbol, Any}(), {})
@@ -134,8 +136,11 @@ function renderloop(window)
 	end
 	GLFW.Terminate()
 end
+
+
 function createWindow(name::Symbol, w, h)
-	GLFW.WindowHint(GLFW.SAMPLES, 4)
+	GLFW.WindowHint(GLFW.SAMPLES, 8)
+
 	#GLFW.WindowHint(GLFW.CONTEXT_VERSION_MAJOR, 3)
 	#GLFW.WindowHint(GLFW.CONTEXT_VERSION_MINOR, 3)
 	#GLFW.WindowHint(GLFW.OPENGL_FORWARD_COMPAT, GL_TRUE)
@@ -157,8 +162,7 @@ function createWindow(name::Symbol, w, h)
 
 	window_size 		= Input(Vector2(0))
 	mouseposition_glfw 	= Input(Vector2(0.0))
-	mouseposition 		= lift(Vector2{Float64}, (
-		mouse, window) -> Vector2(mouse[1], window[2] - mouse[2]), mouseposition_glfw, window_size)
+	mouseposition 		= lift((mouse, window) -> Vector2(mouse[1], window[2] - mouse[2]), Vector2{Float64}, mouseposition_glfw, window_size)
 
 
 	inputs = [
@@ -181,13 +185,13 @@ function createWindow(name::Symbol, w, h)
 		:open 							=> Input(true)
 	]
 
-	screen = Screen(name, ROOT_SCREEN, Screen[], inputs, {})
+	screen = Screen(name, ROOT_SCREEN, Screen[], inputs, {}, window)
 	WINDOW_TO_SCREEN_DICT[window] = screen
 	w,h = GLFW.GetWindowSize(window)
 	update(window, :window_size, Vector2(int(w), int(h)))
 
 	#initGLUtils()
-	screen, window
+	screen
 end
 
 
@@ -195,23 +199,24 @@ end
 GLFW.Init()
 
 const monitors = map(MonitorProperties, GLFW.GetMonitors())
-const screen, w = createWindow(:loley, 512, 512)
+
+const screen = createWindow(:loley, 512, 512)
 
 rect = Rectangle(0.0,0.0,20.0,20.0)
 
-vsh = Input("
+vsh = "
 #version 130
 in vec2 position;
 out vec2 position_o;
 uniform mat4 viewproj;
- 
+uniform mat4 model;
 void main() {
-	gl_Position = viewproj * vec4(position, 0.0, 1.0);
+	gl_Position = viewproj * model * vec4(position, 0.0, 1.0);
 	position_o = position;
 }
-")
+"
  
-fsh = Input("
+fsh = "
 #version 130
 out vec4 outColor;
 in vec2 position_o;
@@ -225,20 +230,31 @@ void main() {
 
     outColor = mix(vec4(.90, .90, .90, 1.0), vec4(.20, .20, .40, 1.0),smoothstep(0.492, 0.5, dist));
 }
-")
+"
 
-
+GLFW.GetWindowAttrib
 function update(shader::GLProgram, source::ASCIIString, typ)
 
 end
-shader = lift(GLProgram, (vert) -> GLProgram(vert, frag, "test"), vsh)
+#shader = lift( (vert) -> GLProgram(vert, frag, "test"), Vector2{Float64}, vsh)
+circle = Circle(0.0,0.0, 50.0)
 
+cam = OrthogonalCamera()
+resize(512, 512, cam)
 
-const circle = RenderObject([
+const global circle_model = eye(Float32, 4,4)
+
+const global circle_data = RenderObject([
 	:indexes 		=> GLBuffer(GLuint[0, 1, 2,  2, 3, 0], 1, bufferType = GL_ELEMENT_ARRAY_BUFFER),
 	:position		=> GLBuffer(GLfloat[0,0,  1,0,  1,1,  0,1], 2),
-	:viewproj		=> eye(Float32, 4,4)
+	:viewproj		=> cam,
+	:model			=> circle_model
 	], GLProgram(vsh, fsh, "circle"))
 
+function render(x::Circle)
+	circle_model = Float32[x.r 0 0 x.x ; 0 x.r 0 x.y ; 0 0 1 0 ; 0 0 0 1]
+	render(circle_data)
+end
 
-renderloop(w)
+
+renderloop(screen.glfwWindow)
