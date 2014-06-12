@@ -4,7 +4,6 @@ export UnicodeInput, KeyPressed, MouseClicked, MouseMoved, EnteredWindow, Window
 export MouseDragged, Scrolled, Window, renderloop, leftbuttondragged, middlebuttondragged, rightbuttondragged, leftclickup, leftclickdown
 
 
-include("enum.jl")
 
 immutable MonitorProperties
 	name::ASCIIString
@@ -27,7 +26,7 @@ function MonitorProperties(monitor::Monitor)
 	gammaramp 			= GLFW.GetGammaRamp(monitor)
 	videomode 			= GLFW.GetVideoMode(monitor)
 
-	dpi					= Vector2(videomode.width / 25.4, videomode.height / 25.4) ./ physicalsize
+	dpi					= Vector2(videomode.width * 25.4, videomode.height * 25.4) ./ physicalsize
 	videomode_supported = GLFW.GetVideoModes(monitor)
 
 	MonitorProperties(name, isprimary, position, physicalsize, gammaramp, videomode, videomode_supported, dpi, monitor)
@@ -44,11 +43,11 @@ immutable Screen
 	id::Symbol
 	parent::Screen
 	children::Vector{Screen}
-	inputs::Dict{Symbol, Input}
+	inputs::Dict{Symbol, Any}
 	renderList::Vector{Any}
 	function Screen(id::Symbol,
 					children::Vector{Screen},
-					inputs::Dict{Symbol, Input},
+					inputs::Dict{Symbol, Any},
 					renderList::Vector{Any})
 		parent = new()
 		new(id::Symbol, parent, children, inputs, renderList)
@@ -56,12 +55,12 @@ immutable Screen
 	function Screen(id::Symbol,
 					parent::Screen,
 					children::Vector{Screen},
-					inputs::Dict{Symbol, Input},
+					inputs::Dict{Symbol, Any},
 					renderList::Vector{Any})
 		new(id::Symbol, parent, children, inputs, renderList)
 	end
 end
-const ROOT_SCREEN = Screen(:root, Screen[], Dict{Symbol, Input}(), {})
+const ROOT_SCREEN = Screen(:root, Screen[], Dict{Symbol, Any}(), {})
 
 const WINDOW_TO_SCREEN_DICT = Dict{Window, Screen}()
 
@@ -79,14 +78,15 @@ function window_closed(window)
 end
 
 function window_resized(window, w::Cint, h::Cint)
-	update(window, :window_width, int(w))
-	update(window, :window_height, int(h))
+	update(window, :window_size, Vector2(int(w), int(h)))
     return nothing
 end
-
+function framebuffer_size(window, w::Cint, h::Cint)
+	update(window, :framebuffer_size, Vector2(int(w), int(h)))
+    return nothing
+end
 function window_position(window, x::Cint, y::Cint)
-	update(window, :windowposition_x, int(x))
-	update(window, :windowposition_y, int(y))
+	update(window, :windowposition, Vector2(int(x),int(y)))
     return nothing
 end
 
@@ -95,14 +95,12 @@ function key_pressed(window::Window, key::Cint, scancode::Cint, action::Cint, mo
 	update(window, :keyboardpressed, int(key))
 	update(window, :keyboardpressedstate, int(action))
 	update(window, :keyboardmodifiers, int(mods))
-
 	return nothing
 end
 function mouse_clicked(window::Window, button::Cint, action::Cint, mods::Cint)
 	update(window, :mousepressed, int(button))
 	update(window, :keyboardmodifiers, int(mods))
 	update(window, :mousepressedstate, int(action))
-
 	return nothing
 end
 
@@ -112,10 +110,7 @@ function unicode_input(window::Window, c::Cuint)
 end
 
 function cursor_position(window::Window, x::Cdouble, y::Cdouble)
-		screen = WINDOW_TO_SCREEN_DICT[window]
-		wh = screen.inputs[:window_height].value
-		update(window, :mouseposition_x, float64(x))
-		update(window, :mouseposition_y, wh - float64(y))
+	update(window, :mouseposition_glfw_coordinates, Vector2(float64(x), float64(y)))
 	return nothing
 end
 function scroll(window::Window, xoffset::Cdouble, yoffset::Cdouble)
@@ -131,8 +126,9 @@ end
 function renderloop(window)
 		# Loop until the user closes the window
 	while !GLFW.WindowShouldClose(window)
-		#test(shape)
-		test()
+
+		render(circle)
+
 		GLFW.SwapBuffers(window)
 		GLFW.PollEvents()
 	end
@@ -157,33 +153,38 @@ function createWindow(name::Symbol, w, h)
 	GLFW.SetCursorPosCallback(window, cursor_position)
 	GLFW.SetScrollCallback(window, scroll)
 	GLFW.SetCursorEnterCallback(window, entered_window)
-	inputs = Dict{Symbol,Input}([
-		:mouseposition_x		=> Input(0.0),
-		:mouseposition_y		=> Input(0.0),
+	GLFW.SetFramebufferSizeCallback(window, framebuffer_size)
 
-		:unicodeinput			=> Input('0'),
+	window_size 		= Input(Vector2(0))
+	mouseposition_glfw 	= Input(Vector2(0.0))
+	mouseposition 		= lift(Vector2{Float64}, (
+		mouse, window) -> Vector2(mouse[1], window[2] - mouse[2]), mouseposition_glfw, window_size)
 
-		:window_width			=> Input(0),
-		:window_height 			=> Input(0),
-		:windowposition_x		=> Input(0),
-		:windowposition_y		=> Input(0),
 
-		:keyboardmodifiers		=> Input(0),
-		:keyboardpressed 		=> Input(0),
-		:keyboardpressedstate	=> Input(0),
-		:mousepressed 			=> Input(0),
-		:mousepressedstate		=> Input(0),
-		:scrolldiff_x			=> Input(0),
-		:scrolldiff_y			=> Input(0),
-		:insidewindow 			=> Input(false),
-		:open 					=> Input(true)
-	])
+	inputs = [
+		:mouseposition					=> mouseposition,
+		:mouseposition_glfw_coordinates	=> mouseposition_glfw,
+
+		:window_size					=> window_size,
+		:framebuffer_size 				=> Input(Vector2(0,0)),
+		:windowposition					=> Input(Vector2(0,0)),
+
+		:unicodeinput					=> Input('0'),
+		:keyboardmodifiers				=> Input(0),
+		:keyboardpressed 				=> Input(0),
+		:keyboardpressedstate			=> Input(0),
+		:mousepressed 					=> Input(0),
+		:mousepressedstate				=> Input(0),
+		:scrolldiff_x					=> Input(0),
+		:scrolldiff_y					=> Input(0),
+		:insidewindow 					=> Input(false),
+		:open 							=> Input(true)
+	]
 
 	screen = Screen(name, ROOT_SCREEN, Screen[], inputs, {})
 	WINDOW_TO_SCREEN_DICT[window] = screen
 	w,h = GLFW.GetWindowSize(window)
-	update(window, :window_width, int(w))
-	update(window, :window_height, int(h))
+	update(window, :window_size, Vector2(int(w), int(h)))
 
 	#initGLUtils()
 	screen, window
@@ -191,54 +192,53 @@ end
 
 
 
-
-function test()
-	glClearColor(1f0, 1f0, 1f0, 0f0)   
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-	
-	programID = shape.vertexArray.program.id
-	glUseProgram(programID)
-	render(shape.uniforms)
-
-	render(:model, Float32[rect.w 0 0 rect.x ; 0 rect.h 0 rect.y ; 0 0 1 0 ; 0 0 0 1], programID)
-	
-	glBindVertexArray(shape.vertexArray.id)
-	glDrawElements(GL_TRIANGLES, shape.vertexArray.indexLength, GL_UNSIGNED_INT, GL_NONE)
-	nothing
-end
-
-
 GLFW.Init()
 
-
 const monitors = map(MonitorProperties, GLFW.GetMonitors())
-println(monitors)
 const screen, w = createWindow(:loley, 512, 512)
 
 rect = Rectangle(0.0,0.0,20.0,20.0)
 
-lift(Float64, x -> rect.x = x, screen.inputs[:mouseposition_x])
-lift(Float64, y -> rect.y = y, screen.inputs[:mouseposition_y])
+vsh = Input("
+#version 130
+in vec2 position;
+out vec2 position_o;
+uniform mat4 viewproj;
+ 
+void main() {
+	gl_Position = viewproj * vec4(position, 0.0, 1.0);
+	position_o = position;
+}
+")
+ 
+fsh = Input("
+#version 130
+out vec4 outColor;
+in vec2 position_o;
 
 
+void main() {
+	float circle_radius = 0.5;
+	vec4 circle_color = vec4(1.0, 0.0, 0.0, 1.0);
+	vec2 circle_center = vec2(0.5, 0.5);
+	float dist = length(circle_center - position_o);
 
-cam = OrthogonalCamera()
+    outColor = mix(vec4(.90, .90, .90, 1.0), vec4(.20, .20, .40, 1.0),smoothstep(0.492, 0.5, dist));
+}
+")
 
-flatshader = GLProgram("flatShader")
-const shape = RenderObject(
-[
+
+function update(shader::GLProgram, source::ASCIIString, typ)
+
+end
+shader = lift(GLProgram, (vert) -> GLProgram(vert, frag, "test"), vsh)
+
+
+const circle = RenderObject([
 	:indexes 		=> GLBuffer(GLuint[0, 1, 2,  2, 3, 0], 1, bufferType = GL_ELEMENT_ARRAY_BUFFER),
 	:position		=> GLBuffer(GLfloat[0,0,  1,0,  1,1,  0,1], 2),
-	:uv				=> GLBuffer(GLfloat[0,1,  1,1,  1,0, 0,0], 2),
-	:vcolor 		=> GLBuffer([0f0 for i=1:16], 4),
-
-	:textureon		=> 0f0,
-	:border			=> 0f0,
-	:borderColor	=> Float32[0,0,0,1],
-	:mvp  			=> cam,
-	:model  		=> eye(Float32, 4, 4)
-], flatshader)
-
+	:viewproj		=> eye(Float32, 4,4)
+	], GLProgram(vsh, fsh, "circle"))
 
 
 renderloop(w)
