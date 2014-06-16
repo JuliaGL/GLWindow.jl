@@ -1,11 +1,13 @@
 # GLWindow
 Simple package to create an OpenGL window, which also allows to emit events.
+
 I'm in the middle of integrating React.jl for the Events.
+
 The source for that is in src/reactglfw.jl and will be soon the standard way of creating a window.
+
 Simple example:
 ```Julia
-using GLWindow, GLUtil, ModernGL, Meshes, Events, ImmutableArrays
-
+using GLWindow, GLUtil, ModernGL, Events
 
 window = createWindow("Mesh Display", 1000, 1000 )
 
