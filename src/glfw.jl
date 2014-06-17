@@ -140,7 +140,11 @@ function openglerrorcallback(
 					"| "*ascii(bytestring(message, length))*"\n"*
 					"|________________________________________________________________\n"
 
-	println(errormessage)
+	if typ == GL_DEBUG_TYPE_PERFORMANCE
+		println(errormessage)
+	else
+		error(errormessage)
+	end
 	nothing
 end
 
@@ -150,9 +154,10 @@ global const _openglerrorcallback = cfunction(openglerrorcallback, Void,
 										GLsizei, Ptr{GLchar},
 										Ptr{Void}))
 
-function createWindow(name::Symbol, w::Int, h::Int)
+function createWindow(name::String, w::Int, h::Int)
 	GLFW.Init()
 	GLFW.WindowHint(GLFW.SAMPLES, 8)
+	GLFW.WindowHint(GLFW.AUX_BUFFERS, 2)
 
 	@osx_only begin
 		GLFW.WindowHint(GLFW.CONTEXT_VERSION_MAJOR, 3)
