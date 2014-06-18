@@ -100,9 +100,9 @@ function key_pressed(window::Window, key::Cint, scancode::Cint, action::Cint, mo
 	return nothing
 end
 function mouse_clicked(window::Window, button::Cint, action::Cint, mods::Cint)
-	update(window, :mousepressed, int(button))
+	update(window, :mousebutton, int(button))
 	update(window, :keyboardmodifiers, int(mods))
-	update(window, :mousepressedstate, int(action))
+	update(window, :mousepressed, action == 1)
 	return nothing
 end
 
@@ -116,8 +116,10 @@ function cursor_position(window::Window, x::Cdouble, y::Cdouble)
 	return nothing
 end
 function scroll(window::Window, xoffset::Cdouble, yoffset::Cdouble)
-	update(window, :scrolldiff_x, int(xoffset))
-	update(window, :scrolldiff_y, int(yoffset))
+	screen = WINDOW_TO_SCREEN_DICT[window]
+	push!(screen.inputs[:scroll_x], int(xoffset))
+	push!(screen.inputs[:scroll_y], int(yoffset))
+
 	return nothing
 end
 function entered_window(window::Window, entered::Cint)
@@ -127,26 +129,29 @@ end
 
 function renderloop(window)
 		# Loop until the user closes the window
-	while !GLFW.WindowShouldClose(window)
+	while !GLFW.WindowShouldClose(window.glfwWindow)
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
-		render(circle)
+		renderLoop()
 
-		GLFW.SwapBuffers(window)
+		GLFW.SwapBuffers(window.glfwWindow)
 		GLFW.PollEvents()
 	end
 	GLFW.Terminate()
 end
 
 
-function createWindow(name::Symbol, w, h)
+function createWindow(name::String, w, h)
+	GLFW.Init()
+
 	GLFW.WindowHint(GLFW.SAMPLES, 8)
-
-	#GLFW.WindowHint(GLFW.CONTEXT_VERSION_MAJOR, 3)
-	#GLFW.WindowHint(GLFW.CONTEXT_VERSION_MINOR, 3)
-	#GLFW.WindowHint(GLFW.OPENGL_FORWARD_COMPAT, GL_TRUE)
-	#GLFW.WindowHint(GLFW.OPENGL_PROFILE, GLFW.OPENGL_CORE_PROFILE)
-
-	window = GLFW.CreateWindow(w, h, string(name))
+	@osx_only begin
+		GLFW.WindowHint(GLFW.CONTEXT_VERSION_MAJOR, 3)
+		GLFW.WindowHint(GLFW.CONTEXT_VERSION_MINOR, 3)
+		GLFW.WindowHint(GLFW.OPENGL_FORWARD_COMPAT, GL_TRUE)
+		GLFW.WindowHint(GLFW.OPENGL_PROFILE, GLFW.OPENGL_CORE_PROFILE)
+	end
+	window = GLFW.CreateWindow(w, h, name)
 	GLFW.MakeContextCurrent(window)
 
 	GLFW.SetWindowCloseCallback(window, window_closed)
@@ -163,12 +168,15 @@ function createWindow(name::Symbol, w, h)
 	window_size 		= Input(Vector2(0))
 	mouseposition_glfw 	= Input(Vector2(0.0))
 	mouseposition 		= lift((mouse, window) -> Vector2(mouse[1], window[2] - mouse[2]), Vector2{Float64}, mouseposition_glfw, window_size)
+	mousebutton 		= Input(0)
+	mousepressed		= Input(false)
 
-
+	mousedragged 		= filter(_ -> mousepressed.value, Vector2(0.0), mouseposition)
+	
 	inputs = [
 		:mouseposition					=> mouseposition,
 		:mouseposition_glfw_coordinates	=> mouseposition_glfw,
-
+		:mousedragged 					=> mousedragged,
 		:window_size					=> window_size,
 		:framebuffer_size 				=> Input(Vector2(0,0)),
 		:windowposition					=> Input(Vector2(0,0)),
@@ -177,28 +185,27 @@ function createWindow(name::Symbol, w, h)
 		:keyboardmodifiers				=> Input(0),
 		:keyboardpressed 				=> Input(0),
 		:keyboardpressedstate			=> Input(0),
-		:mousepressed 					=> Input(0),
-		:mousepressedstate				=> Input(0),
-		:scrolldiff_x					=> Input(0),
-		:scrolldiff_y					=> Input(0),
+		:mousebutton 					=> mousebutton,
+		:mousepressed					=> mousepressed,
+		:scroll_x						=> Input(0),
+		:scroll_y						=> Input(0),
 		:insidewindow 					=> Input(false),
 		:open 							=> Input(true)
 	]
 
-	screen = Screen(name, ROOT_SCREEN, Screen[], inputs, {}, window)
+	screen = Screen(symbol(name), ROOT_SCREEN, Screen[], inputs, {}, window)
 	WINDOW_TO_SCREEN_DICT[window] = screen
 	w,h = GLFW.GetWindowSize(window)
 	update(window, :window_size, Vector2(int(w), int(h)))
 
-	#initGLUtils()
+	initGLUtils()
 	screen
 end
 
 
 
-GLFW.Init()
-
-const monitors = map(MonitorProperties, GLFW.GetMonitors())
+#const monitors = map(MonitorProperties, GLFW.GetMonitors())
+#=
 
 const screen = createWindow(:loley, 512, 512)
 
@@ -258,3 +265,4 @@ end
 
 
 renderloop(screen.glfwWindow)
+=#
