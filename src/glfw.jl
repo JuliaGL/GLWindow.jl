@@ -154,18 +154,24 @@ global const _openglerrorcallback = cfunction(openglerrorcallback, Void,
 										GLsizei, Ptr{GLchar},
 										Ptr{Void}))
 
-function createWindow(name::String, w::Int, h::Int)
+function createWindow(name::String, w::Int, h::Int; debugging = true)
 	GLFW.Init()
 	GLFW.WindowHint(GLFW.SAMPLES, 4)
 
 	@osx_only begin
+		if debugging
+			println("warning: OpenGL debug message callback not available on osx")
+			debugging = false
+		end
 		GLFW.WindowHint(GLFW.CONTEXT_VERSION_MAJOR, 3)
 		GLFW.WindowHint(GLFW.CONTEXT_VERSION_MINOR, 3)
 		GLFW.WindowHint(GLFW.OPENGL_FORWARD_COMPAT, GL_TRUE)
 		GLFW.WindowHint(GLFW.OPENGL_PROFILE, GLFW.OPENGL_CORE_PROFILE)
 	end 
-	GLFW.WindowHint(GLFW.OPENGL_DEBUG_CONTEXT, 1)
-
+	if debugging
+		GLFW.WindowHint(GLFW.OPENGL_DEBUG_CONTEXT, 1)
+	end
+	
 	window = GLFW.CreateWindow(w,h, string(name))
 	GLFW.MakeContextCurrent(window)
 
@@ -179,7 +185,8 @@ function createWindow(name::String, w::Int, h::Int)
 	GLFW.SetCursorEnterCallback(window, entered_window)
 
 	initGLUtils()	
-	glDebugMessageCallbackARB(_openglerrorcallback, C_NULL)
-
+	if debugging
+		glDebugMessageCallbackARB(_openglerrorcallback, C_NULL)
+	end
 	window
 end
