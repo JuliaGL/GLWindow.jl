@@ -140,19 +140,28 @@ function renderloop(window)
 	GLFW.Terminate()
 end
 
-
-function createWindow(name::String, w, h)
+function createWindow(name::String, w, h; debugging = true)
 	GLFW.Init()
 
-	GLFW.WindowHint(GLFW.SAMPLES, 8)
+	GLFW.WindowHint(GLFW.SAMPLES, 4)
 	@osx_only begin
+		if debugging
+			println("warning: OpenGL debug message callback not available on osx")
+			debugging = false
+		end
 		GLFW.WindowHint(GLFW.CONTEXT_VERSION_MAJOR, 3)
 		GLFW.WindowHint(GLFW.CONTEXT_VERSION_MINOR, 3)
 		GLFW.WindowHint(GLFW.OPENGL_FORWARD_COMPAT, GL_TRUE)
 		GLFW.WindowHint(GLFW.OPENGL_PROFILE, GLFW.OPENGL_CORE_PROFILE)
 	end
+	
+	GLFW.WindowHint(GLFW.OPENGL_DEBUG_CONTEXT, debugging)
+
 	window = GLFW.CreateWindow(w, h, name)
 	GLFW.MakeContextCurrent(window)
+	if debugging
+		glDebugMessageCallbackARB(_openglerrorcallback, C_NULL)
+	end
 
 	GLFW.SetWindowCloseCallback(window, window_closed)
 	GLFW.SetWindowSizeCallback(window, window_resized)
