@@ -156,8 +156,7 @@ global const _openglerrorcallback = cfunction(openglerrorcallback, Void,
 
 function createWindow(name::String, w::Int, h::Int)
 	GLFW.Init()
-	GLFW.WindowHint(GLFW.SAMPLES, 8)
-	GLFW.WindowHint(GLFW.AUX_BUFFERS, 2)
+	GLFW.WindowHint(GLFW.SAMPLES, 4)
 
 	@osx_only begin
 		GLFW.WindowHint(GLFW.CONTEXT_VERSION_MAJOR, 3)
