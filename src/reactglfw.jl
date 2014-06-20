@@ -94,14 +94,14 @@ end
 
 
 function key_pressed(window::Window, key::Cint, scancode::Cint, action::Cint, mods::Cint)
-	update(window, :keyboardpressed, int(key), keepsimilar = false)
-	update(window, :keyboardpressedstate, int(action), keepsimilar = false)
-	update(window, :keyboardmodifiers, int(mods), keepsimilar = false)
+	update(window, :keypressed, int(key), keepsimilar = true)
+	update(window, :keypressedstate, int(action), keepsimilar = false)
+	update(window, :keymodifiers, int(mods), keepsimilar = false)
 	return nothing
 end
 function mouse_clicked(window::Window, button::Cint, action::Cint, mods::Cint)
 	update(window, :mousebutton, int(button), keepsimilar = false)
-	update(window, :keyboardmodifiers, int(mods))
+	update(window, :keymodifiers, int(mods))
 	update(window, :mousepressed, action == 1)
 	return nothing
 end
@@ -243,13 +243,13 @@ function createwindow(name::String, w, h; debugging = false)
 		:mouseposition_glfw_coordinates	=> mouseposition_glfw,
 		:mousedragged 					=> mousedragged,
 		:window_size					=> window_size,
-		:framebuffer_size 				=> Input(Vector2(0,0)),
-		:windowposition					=> Input(Vector2(0,0)),
+		:framebuffer_size 				=> Input(Vector2(0)),
+		:windowposition					=> Input(Vector2(0)),
 
 		:unicodeinput					=> Input('0'),
-		:keyboardmodifiers				=> Input(0),
-		:keyboardpressed 				=> Input(0),
-		:keyboardpressedstate			=> Input(0),
+		:keymodifiers					=> Input(0),
+		:keypressed 					=> Input(0),
+		:keypressedstate				=> Input(0),
 		:mousebutton 					=> mousebutton,
 		:mousepressed					=> mousepressed,
 		:scroll_x						=> Input(0),
