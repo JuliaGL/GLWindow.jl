@@ -139,9 +139,31 @@ function renderloop(window)
 	end
 	GLFW.Terminate()
 end
+function openglerrorcallback(
+				source::GLenum, typ::GLenum,
+				id::GLuint, severity::GLenum,
+				length::GLsizei, message::Ptr{GLchar},
+				userParam::Ptr{Void}
+			)
+	errormessage = 	"\n"*
+					" ________________________________________________________________\n"* 
+					"|\n"*
+					"| OpenGL Error!\n"*
+					"| source: $(GLENUM(source).name) :: type: $(GLENUM(typ).name)\n"*
+					"| "*ascii(bytestring(message, length))*"\n"*
+					"|________________________________________________________________\n"
+
+	if typ == GL_DEBUG_TYPE_PERFORMANCE
+		println(errormessage)
+	else
+		error(errormessage)
+	end
+	nothing
+end
 
 global const OPENGL_CONTEXT = (Symbol => Any)[]
 global GLSL_VERSION = "OPENGL not loaded yet"
+
 function createcontextinfo(dict)
 	global GLSL_VERSION
 	glsl = split(bytestring(glGetString(GL_SHADING_LANGUAGE_VERSION)), ['.', ' '])
@@ -165,18 +187,34 @@ function createcontextinfo(dict)
 	#dict[:gl_extensions] 	= split(bytestring(glGetString(GL_EXTENSIONS)))
 end
 
-function createwindow(name::String, w, h)
+global const _openglerrorcallback = cfunction(openglerrorcallback, Void,
+										(GLenum, GLenum,
+										GLuint, GLenum,
+										GLsizei, Ptr{GLchar},
+										Ptr{Void}))
+
+function createwindow(name::String, w, h; debugging = false)
 	GLFW.Init()
 
-	GLFW.WindowHint(GLFW.SAMPLES, 8)
+	GLFW.WindowHint(GLFW.SAMPLES, 4)
 	@osx_only begin
+		if debugging
+			println("warning: OpenGL debug message callback not available on osx")
+			debugging = false
+		end
 		GLFW.WindowHint(GLFW.CONTEXT_VERSION_MAJOR, 3)
 		GLFW.WindowHint(GLFW.CONTEXT_VERSION_MINOR, 3)
 		GLFW.WindowHint(GLFW.OPENGL_FORWARD_COMPAT, GL_TRUE)
 		GLFW.WindowHint(GLFW.OPENGL_PROFILE, GLFW.OPENGL_CORE_PROFILE)
 	end
+	
+	GLFW.WindowHint(GLFW.OPENGL_DEBUG_CONTEXT, debugging)
+
 	window = GLFW.CreateWindow(w, h, name)
 	GLFW.MakeContextCurrent(window)
+	if debugging
+		glDebugMessageCallbackARB(_openglerrorcallback, C_NULL)
+	end
 
 	createcontextinfo(OPENGL_CONTEXT)
 	info(string(OPENGL_CONTEXT))
@@ -228,68 +266,3 @@ function createwindow(name::String, w, h)
 	initGLUtils()
 	screen
 end
-
-
-
-#const monitors = map(MonitorProperties, GLFW.GetMonitors())
-#=
-
-const screen = createWindow(:loley, 512, 512)
-
-rect = Rectangle(0.0,0.0,20.0,20.0)
-
-vsh = "
-#version 130
-in vec2 position;
-out vec2 position_o;
-uniform mat4 viewproj;
-uniform mat4 model;
-void main() {
-	gl_Position = viewproj * model * vec4(position, 0.0, 1.0);
-	position_o = position;
-}
-"
- 
-fsh = "
-#version 130
-out vec4 outColor;
-in vec2 position_o;
-
-
-void main() {
-	float circle_radius = 0.5;
-	vec4 circle_color = vec4(1.0, 0.0, 0.0, 1.0);
-	vec2 circle_center = vec2(0.5, 0.5);
-	float dist = length(circle_center - position_o);
-
-    outColor = mix(vec4(.90, .90, .90, 1.0), vec4(.20, .20, .40, 1.0),smoothstep(0.492, 0.5, dist));
-}
-"
-
-GLFW.GetWindowAttrib
-function update(shader::GLProgram, source::ASCIIString, typ)
-
-end
-#shader = lift( (vert) -> GLProgram(vert, frag, "test"), Vector2{Float64}, vsh)
-circle = Circle(0.0,0.0, 50.0)
-
-cam = OrthogonalCamera()
-resize(512, 512, cam)
-
-const global circle_model = eye(Float32, 4,4)
-
-const global circle_data = RenderObject([
-	:indexes 		=> GLBuffer(GLuint[0, 1, 2,  2, 3, 0], 1, bufferType = GL_ELEMENT_ARRAY_BUFFER),
-	:position		=> GLBuffer(GLfloat[0,0,  1,0,  1,1,  0,1], 2),
-	:viewproj		=> cam,
-	:model			=> circle_model
-	], GLProgram(vsh, fsh, "circle"))
-
-function render(x::Circle)
-	circle_model = Float32[x.r 0 0 x.x ; 0 x.r 0 x.y ; 0 0 1 0 ; 0 0 0 1]
-	render(circle_data)
-end
-
-
-renderloop(screen.glfwWindow)
-=#
