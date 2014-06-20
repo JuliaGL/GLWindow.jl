@@ -1,13 +1,13 @@
 module GLWindow
 using ModernGL, GLUtil, Events
-export glDisplay, glRemove, createWindow
+export gldisplay, glremove, createwindow
 
 
 global const RENDER_DICT = Dict{Symbol, Any}()
 
 
-function renderLoop()
-    for elem in RENDER_DICT
+function renderloop()
+    for (ind,elem) in enumerate(RENDER_DICT)
         if isa(elem[2], Tuple)
             if isa(elem[2][1], Function)
                 elem[2][1](elem[2][2:end]...)
@@ -20,11 +20,11 @@ function renderLoop()
     end
 end
 
-function glDisplay(id::Symbol, x...) 
+function gldisplay(id::Symbol, x...) 
     RENDER_DICT[id] = x
     nothing
 end
-function glRemove(id::Symbol)
+function glremove(id::Symbol)
     delete!(RENDER_DICT, id)
     nothing
 end

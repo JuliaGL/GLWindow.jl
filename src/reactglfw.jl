@@ -66,10 +66,10 @@ const ROOT_SCREEN = Screen(:root, Screen[], Dict{Symbol, Any}(), {})
 
 const WINDOW_TO_SCREEN_DICT = Dict{Window, Screen}()
 
-function update(window::Window, key::Symbol, value)
+function update(window::Window, key::Symbol, value; keepsimilar = false)
 	screen = WINDOW_TO_SCREEN_DICT[window]
 	input = screen.inputs[key]
-	if input.value != value
+	if keepsimilar || input.value != value
 		push!(input, value)
 	end
 end
@@ -94,20 +94,20 @@ end
 
 
 function key_pressed(window::Window, key::Cint, scancode::Cint, action::Cint, mods::Cint)
-	update(window, :keyboardpressed, int(key))
-	update(window, :keyboardpressedstate, int(action))
-	update(window, :keyboardmodifiers, int(mods))
+	update(window, :keyboardpressed, int(key), keepsimilar = false)
+	update(window, :keyboardpressedstate, int(action), keepsimilar = false)
+	update(window, :keyboardmodifiers, int(mods), keepsimilar = false)
 	return nothing
 end
 function mouse_clicked(window::Window, button::Cint, action::Cint, mods::Cint)
-	update(window, :mousebutton, int(button))
+	update(window, :mousebutton, int(button), keepsimilar = false)
 	update(window, :keyboardmodifiers, int(mods))
 	update(window, :mousepressed, action == 1)
 	return nothing
 end
 
 function unicode_input(window::Window, c::Cuint)
-	update(window, :unicodeinput, char(c))
+	update(window, :unicodeinput, char(c), keepsimilar = false)
 	return nothing
 end
 
@@ -132,7 +132,7 @@ function renderloop(window)
 	while !GLFW.WindowShouldClose(window.glfwWindow)
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
-		renderLoop()
+		renderloop()
 
 		GLFW.SwapBuffers(window.glfwWindow)
 		GLFW.PollEvents()
@@ -140,8 +140,32 @@ function renderloop(window)
 	GLFW.Terminate()
 end
 
+global const OPENGL_CONTEXT = (Symbol => Any)[]
+global GLSL_VERSION = "OPENGL not loaded yet"
+function createcontextinfo(dict)
+	global GLSL_VERSION
+	glsl = split(bytestring(glGetString(GL_SHADING_LANGUAGE_VERSION)), ['.', ' '])
+	if length(glsl) >= 2
+		glsl = VersionNumber(int(glsl[1]), int(glsl[2])) 
+		GLSL_VERSION = string(glsl.major) * rpad(string(glsl.minor),2,"0")
+	else
+		error("Unexpected version number string. Please report this bug! Version string: $(glsl)")
+	end
 
-function createWindow(name::String, w, h)
+	glv = split(bytestring(glGetString(GL_VERSION)), ['.', ' '])
+	if length(glv) >= 2
+		glv = VersionNumber(int(glv[1]), int(glv[2])) 
+	else
+		error("Unexpected version number string. Please report this bug! Version string: $(glsl)")
+	end
+	dict[:glsl_version] 	= glsl
+	dict[:gl_version] 		= glv
+	dict[:gl_vendor] 		= bytestring(glGetString(GL_VENDOR))
+	dict[:gl_renderer] 		= bytestring(glGetString(GL_RENDERER))
+	#dict[:gl_extensions] 	= split(bytestring(glGetString(GL_EXTENSIONS)))
+end
+
+function createwindow(name::String, w, h)
 	GLFW.Init()
 
 	GLFW.WindowHint(GLFW.SAMPLES, 8)
@@ -153,6 +177,9 @@ function createWindow(name::String, w, h)
 	end
 	window = GLFW.CreateWindow(w, h, name)
 	GLFW.MakeContextCurrent(window)
+
+	createcontextinfo(OPENGL_CONTEXT)
+	info(string(OPENGL_CONTEXT))
 
 	GLFW.SetWindowCloseCallback(window, window_closed)
 	GLFW.SetWindowSizeCallback(window, window_resized)
