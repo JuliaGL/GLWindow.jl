@@ -203,7 +203,7 @@ function createwindow(name::String, w, h; debugging = false)
 			debugging = false
 		end
 		GLFW.WindowHint(GLFW.CONTEXT_VERSION_MAJOR, 3)
-		GLFW.WindowHint(GLFW.CONTEXT_VERSION_MINOR, 3)
+		GLFW.WindowHint(GLFW.CONTEXT_VERSION_MINOR, 2)
 		GLFW.WindowHint(GLFW.OPENGL_FORWARD_COMPAT, GL_TRUE)
 		GLFW.WindowHint(GLFW.OPENGL_PROFILE, GLFW.OPENGL_CORE_PROFILE)
 	end
