@@ -236,7 +236,7 @@ function createwindow(name::String, w, h; debugging = false)
 	mousebutton 		= Input(0)
 	mousepressed		= Input(false)
 
-	mousedragged 		= filter(_ -> mousepressed.value, Vector2(0.0), mouseposition)
+	mousedragged 		= keepwhen(mousepressed, Vector2(0.0), mouseposition)
 	
 	inputs = [
 		:mouseposition					=> mouseposition,
@@ -263,6 +263,6 @@ function createwindow(name::String, w, h; debugging = false)
 	w,h = GLFW.GetWindowSize(window)
 	update(window, :window_size, Vector2(int(w), int(h)))
 
-	initGLUtils()
+	init_glutils()
 	screen
 end

@@ -1,11 +1,11 @@
 module GLWindow
-using ModernGL, GLUtil, Events
+using ModernGL, GLUtil
 export gldisplay, glremove, createwindow
 
 
 global const RENDER_DICT = Dict{Symbol, Any}()
 
-
+#current render loop... Will definitely not stay like this
 function renderloop()
     for (ind,elem) in enumerate(RENDER_DICT)
         if isa(elem[2], Tuple)
