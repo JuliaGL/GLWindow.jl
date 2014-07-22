@@ -1,5 +1,5 @@
 module GLWindow
-using ModernGL, GLUtil
+using ModernGL, GLAbstraction, GLFW, React, ImmutableArrays
 export gldisplay, glremove, createwindow
 
 

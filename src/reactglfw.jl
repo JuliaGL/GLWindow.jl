@@ -1,5 +1,4 @@
-using GLFW, React, ImmutableArrays, ModernGL, GLUtil
-import GLFW.Window, GLUtil.update, GLFW.Monitor, GLUtil.render
+import GLFW.Window, GLFW.Monitor, GLAbstraction.update, GLAbstraction.render
 export UnicodeInput, KeyPressed, MouseClicked, MouseMoved, EnteredWindow, WindowResized
 export MouseDragged, Scrolled, Window, renderloop, leftbuttondragged, middlebuttondragged, rightbuttondragged, leftclickup, leftclickdown
 
@@ -211,9 +210,9 @@ function createwindow(name::String, w, h; debugging = false)
 	end
 	
 	GLFW.WindowHint(GLFW.OPENGL_DEBUG_CONTEXT, debugging)
-
 	window = GLFW.CreateWindow(w, h, name)
 	GLFW.MakeContextCurrent(window)
+	GLFW.ShowWindow(window)
 	if debugging
 		glDebugMessageCallbackARB(_openglerrorcallback, C_NULL)
 	end
