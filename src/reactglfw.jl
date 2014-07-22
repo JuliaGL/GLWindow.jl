@@ -217,11 +217,6 @@ function createwindow(name::String, w, h; debugging = false)
 	end
 
 	createcontextinfo(OPENGL_CONTEXT)
-	for elem in OPENGL_CONTEXT[:gl_extensions]
-		if ismatch(r"instance", elem)
-			println(elem)
-		end
-	end
 
 	GLFW.SetWindowCloseCallback(window, window_closed)
 	GLFW.SetWindowSizeCallback(window, window_resized)
