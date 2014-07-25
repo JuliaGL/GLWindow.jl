@@ -69,7 +69,7 @@ function update(window::Window, key::Symbol, value; keepsimilar = false)
 	screen = WINDOW_TO_SCREEN_DICT[window]
 	input = screen.inputs[key]
 	if keepsimilar || input.value != value
-		push!(input, value)
+		@async push!(input, value)
 	end
 end
 
@@ -184,7 +184,7 @@ function createcontextinfo(dict)
 	dict[:gl_vendor] 		= bytestring(glGetString(GL_VENDOR))
 	dict[:gl_renderer] 		= bytestring(glGetString(GL_RENDERER))
 	n = GLint[0]
-	glGetIntegerv(GL_NUM_EXTENSIONS,n)
+	glGetIntegerv(GL_NUM_EXTENSIONS, n)
 	dict[:gl_extensions] 	= [ bytestring(glGetStringi(GL_EXTENSIONS, i)) for i = 0:(n[1]-1) ]
 end
 
