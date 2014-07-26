@@ -2,7 +2,7 @@ language: cpp
 compiler:
   - clang
 notifications:
-  email: false
+  email: sdanisch@gmail.com
 env:
   matrix:
     - JULIAVERSION="juliareleases"
