@@ -127,7 +127,7 @@ function entered_window(window::Window, entered::Cint)
 end
 
 function renderloop(window)
-		# Loop until the user closes the window
+	# Loop until the user closes the window
 	while !GLFW.WindowShouldClose(window.glfwWindow)
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
