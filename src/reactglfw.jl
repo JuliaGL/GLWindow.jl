@@ -194,10 +194,11 @@ global const _openglerrorcallback = cfunction(openglerrorcallback, Void,
 										GLsizei, Ptr{GLchar},
 										Ptr{Void}))
 
-function createwindow(name::String, w, h; debugging = false)
+function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.SAMPLES, 4)])
 	GLFW.Init()
-
-	GLFW.WindowHint(GLFW.SAMPLES, 4)
+	for elem in windowhints
+		GLFW.WindowHint(elem...)
+	end
 	@osx_only begin
 		if debugging
 			println("warning: OpenGL debug message callback not available on osx")
