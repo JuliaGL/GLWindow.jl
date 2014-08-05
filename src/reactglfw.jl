@@ -69,7 +69,7 @@ function update(window::Window, key::Symbol, value; keepsimilar = false)
 	screen = WINDOW_TO_SCREEN_DICT[window]
 	input = screen.inputs[key]
 	if keepsimilar || input.value != value
-		@async push!(input, value)
+		 push!(input, value)
 	end
 end
 
@@ -90,23 +90,51 @@ function window_position(window, x::Cint, y::Cint)
 	update(window, :windowposition, Vector2(int(x),int(y)))
     return nothing
 end
-
-
-function key_pressed(window::Window, key::Cint, scancode::Cint, action::Cint, mods::Cint)
-	update(window, :keypressed, int(key), keepsimilar = true)
-	update(window, :keypressedstate, int(action), keepsimilar = false)
-	update(window, :keymodifiers, int(mods), keepsimilar = false)
+immutable KeyPress
+	key::String
+	justpressed::Bool
+end
+function key_pressed(window::Window, button::Cint, scancode::Cint, action::Cint, mods::Cint)
+	screen = WINDOW_TO_SCREEN_DICT[window]
+	
+	buttonspressed 	= screen.inputs[:buttonspressed]
+	keyset 		= buttonspressed.value
+	buttonI 		= int(button)
+	if action == GLFW.PRESS  
+		buttondown 	= screen.inputs[:buttondown]
+		 push!(buttondown, buttonI)
+		push!(keyset, buttonI)
+		 push!(buttonspressed, keyset)
+	elseif action == GLFW.RELEASE 
+		buttonreleased 	= screen.inputs[:buttonreleased]
+		 push!(buttonreleased, buttonI)
+		setdiff!(keyset, Set(buttonI))
+		 push!(buttonspressed, keyset)
+	end
 	return nothing
 end
 function mouse_clicked(window::Window, button::Cint, action::Cint, mods::Cint)
-	update(window, :mousebutton, int(button), keepsimilar = false)
-	update(window, :keymodifiers, int(mods))
-	update(window, :mousepressed, action == 1)
+	screen = WINDOW_TO_SCREEN_DICT[window]
+	
+	buttonspressed 	= screen.inputs[:mousebuttonspressed]
+	keyset 			= buttonspressed.value
+	buttonI 		= int(button)
+	if action == GLFW.PRESS  
+		buttondown 	= screen.inputs[:mousedown]
+		 push!(buttondown, buttonI)
+		push!(keyset, buttonI)
+		 push!(buttonspressed, keyset)
+	elseif action == GLFW.RELEASE 
+		buttonreleased 	= screen.inputs[:mousereleased]
+		 push!(buttonreleased, buttonI)
+		setdiff!(keyset, Set(buttonI))
+		 push!(buttonspressed, keyset)
+	end
 	return nothing
 end
 
 function unicode_input(window::Window, c::Cuint)
-	update(window, :unicodeinput, char(c), keepsimilar = false)
+	update(window, :unicodeinput, char(c), keepsimilar = true)
 	return nothing
 end
 
@@ -118,7 +146,8 @@ function scroll(window::Window, xoffset::Cdouble, yoffset::Cdouble)
 	screen = WINDOW_TO_SCREEN_DICT[window]
 	push!(screen.inputs[:scroll_x], int(xoffset))
 	push!(screen.inputs[:scroll_y], int(yoffset))
-
+	push!(screen.inputs[:scroll_x], int(0))
+	push!(screen.inputs[:scroll_y], int(0))
 	return nothing
 end
 function entered_window(window::Window, entered::Cint)
@@ -234,29 +263,32 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
 	window_size 		= Input(Vector2(w,h))
 	mouseposition_glfw 	= Input(Vector2(0.0))
 	mouseposition 		= lift((mouse, window) -> Vector2(mouse[1], window[2] - mouse[2]), Vector2{Float64}, mouseposition_glfw, window_size)
-	mousebutton 		= Input(0)
-	mousepressed		= Input(false)
 
-	mousedragged 		= keepwhen(mousepressed, Vector2(0.0), mouseposition)
 	
 	inputs = [
-		:mouseposition					=> mouseposition,
-		:mouseposition_glfw_coordinates	=> mouseposition_glfw,
-		:mousedragged 					=> mousedragged,
+		:insidewindow 					=> Input(false),
+		:open 							=> Input(true),
+
 		:window_size					=> window_size,
 		:framebuffer_size 				=> Input(Vector2(0)),
 		:windowposition					=> Input(Vector2(0)),
 
 		:unicodeinput					=> Input('0'),
-		:keymodifiers					=> Input(0),
-		:keypressed 					=> Input(0),
-		:keypressedstate				=> Input(0),
-		:mousebutton 					=> mousebutton,
-		:mousepressed					=> mousepressed,
+
+		:buttonspressed					=> Input(IntSet()),
+		:buttondown						=> Input(0),
+		:buttonreleased					=> Input(0),
+
+		:mousebuttonspressed			=> Input(IntSet()),
+		:mousedown						=> Input(0),
+		:mousereleased					=> Input(0),
+
+		:mouseposition					=> mouseposition,
+		:mouseposition_glfw_coordinates	=> mouseposition_glfw,
+
 		:scroll_x						=> Input(0),
-		:scroll_y						=> Input(0),
-		:insidewindow 					=> Input(false),
-		:open 							=> Input(true)
+		:scroll_y						=> Input(0)
+		
 	]
 
 	screen = Screen(symbol(name), ROOT_SCREEN, Screen[], inputs, {}, window)
