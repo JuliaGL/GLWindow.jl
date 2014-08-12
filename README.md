@@ -6,22 +6,29 @@ createwindow will return a screen object which basically just wraps all the sign
 These are the exposed Signals:
 ```Julia
 Screen.inputs = [
-		:mouseposition					=> Input{Vector2{Float64})},
-		:mousedragged 					=> Input{Vector2{Float64})},
-		:window_size					=> Input{Vector2{Int})},
-		:framebuffer_size 				=> Input{Vector2{Int})},
-		:windowposition					=> Input{Vector2{Int})},
+		:insidewindow 					=> Input(false),
+		:open 							=> Input(true),
 
-		:unicodeinput					=> Input{Char},
-		:keymodifiers					=> Input{Int},
-		:keypressed 					=> Input{Int},
-		:keypressedstate				=> Input{Int},
-		:mousebutton 					=> Input{Int},
-		:mousepressed					=> Input{Bool},
-		:scroll_x						=> Input{Int},
-		:scroll_y						=> Input{Int},
-		:insidewindow 					=> Input{Bool},
-		:open 							=> Input{Bool}
+		:window_size					=> window_size(Vector{Float64}(width, height),
+		:framebuffer_size 				=> Input(Vector2(0)),
+		:windowposition					=> Input(Vector2(0)),
+
+		:unicodeinput					=> Input('0'),
+
+		:buttonspressed					=> Input(IntSet()),# Set of pressed keyboard keys
+		:buttondown						=> Input(0),
+		:buttonreleased					=> Input(0),
+
+		:mousebuttonspressed			=> Input(IntSet()), # Set of pressed mousekeys
+		:mousedown						=> Input(0),
+		:mousereleased					=> Input(0),
+
+		:mouseposition					=> mouseposition,
+		:mouseposition_glfw_coordinates	=> mouseposition_glfw,
+
+		:scroll_x						=> Input(0),
+		:scroll_y						=> Input(0)
+		
 	]
 =#
 ```
