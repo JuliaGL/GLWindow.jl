@@ -79,7 +79,7 @@ function window_closed(window)
 end
 
 function window_resized(window, w::Cint, h::Cint)
-	update(window, :window_size, Vector2(int(w), int(h)))
+	update(window, :window_size, Vector4(0, 0, int(w), int(h)))
     return nothing
 end
 function framebuffer_size(window, w::Cint, h::Cint)
@@ -261,8 +261,8 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
 	GLFW.SetFramebufferSizeCallback(window, framebuffer_size)
 
 	width, height 		= GLFW.GetWindowSize(window)
-	window_size 		= Input(Vector2{Int}(width, height))
-	glViewport(0,0, width, height)
+	window_size 		= Input(Vector4{Int}(0, 0, width, height))
+	glViewport(0, 0, width, height)
 
 	mouseposition_glfw 	= Input(Vector2(0.0))
 	mouseposition 		= lift((mouse, window) -> Vector2(mouse[1], window[2] - mouse[2]), Vector2{Float64}, mouseposition_glfw, window_size)
@@ -296,8 +296,7 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
 
 	screen = Screen(symbol(name), ROOT_SCREEN, Screen[], inputs, {}, window)
 	WINDOW_TO_SCREEN_DICT[window] = screen
-	w,h = GLFW.GetWindowSize(window)
-	update(window, :window_size, Vector2(int(w), int(h)))
+	
 
 	init_glutils()
 	screen
