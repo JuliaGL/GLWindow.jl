@@ -260,7 +260,10 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
 	GLFW.SetCursorEnterCallback(window, entered_window)
 	GLFW.SetFramebufferSizeCallback(window, framebuffer_size)
 
-	window_size 		= Input(Vector2(w,h))
+	width, height 		= GLFW.GetWindowSize(window)
+	window_size 		= Input(Vector2{Int}(width, height))
+	glViewport(0,0, width, height)
+
 	mouseposition_glfw 	= Input(Vector2(0.0))
 	mouseposition 		= lift((mouse, window) -> Vector2(mouse[1], window[2] - mouse[2]), Vector2{Float64}, mouseposition_glfw, window_size)
 
