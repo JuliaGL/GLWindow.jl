@@ -79,6 +79,7 @@ function window_closed(window)
 end
 
 function window_resized(window, w::Cint, h::Cint)
+	println("w: ", w, " h: ", h)
 	update(window, :window_size, Vector4(0, 0, int(w), int(h)))
     return nothing
 end
@@ -96,20 +97,21 @@ immutable KeyPress
 end
 function key_pressed(window::Window, button::Cint, scancode::Cint, action::Cint, mods::Cint)
 	screen = WINDOW_TO_SCREEN_DICT[window]
-	
-	buttonspressed 	= screen.inputs[:buttonspressed]
-	keyset 		= buttonspressed.value
-	buttonI 		= int(button)
-	if action == GLFW.PRESS  
-		buttondown 	= screen.inputs[:buttondown]
-		 push!(buttondown, buttonI)
-		push!(keyset, buttonI)
-		 push!(buttonspressed, keyset)
-	elseif action == GLFW.RELEASE 
-		buttonreleased 	= screen.inputs[:buttonreleased]
-		 push!(buttonreleased, buttonI)
-		setdiff!(keyset, Set(buttonI))
-		 push!(buttonspressed, keyset)
+	if sign(button) == 1
+		buttonspressed 	= screen.inputs[:buttonspressed]
+		keyset 			= buttonspressed.value
+		buttonI 		= int(button)
+		if action == GLFW.PRESS  
+			buttondown 	= screen.inputs[:buttondown]
+			push!(buttondown, buttonI)
+			push!(keyset, buttonI)
+			push!(buttonspressed, keyset)
+		elseif action == GLFW.RELEASE 
+			buttonreleased 	= screen.inputs[:buttonreleased]
+			push!(buttonreleased, buttonI)
+			setdiff!(keyset, Set(buttonI))
+			push!(buttonspressed, keyset)
+		end
 	end
 	return nothing
 end
@@ -259,6 +261,8 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
 	GLFW.SetScrollCallback(window, scroll)
 	GLFW.SetCursorEnterCallback(window, entered_window)
 	GLFW.SetFramebufferSizeCallback(window, framebuffer_size)
+
+	GLFW.SetWindowSize(window, w, h) # Seems to be necessary to guarantee that window > 0
 
 	width, height 		= GLFW.GetWindowSize(window)
 	window_size 		= Input(Vector4{Int}(0, 0, width, height))
