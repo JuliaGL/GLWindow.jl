@@ -79,7 +79,6 @@ function window_closed(window)
 end
 
 function window_resized(window, w::Cint, h::Cint)
-	println("w: ", w, " h: ", h)
 	update(window, :window_size, Vector4(0, 0, int(w), int(h)))
     return nothing
 end
