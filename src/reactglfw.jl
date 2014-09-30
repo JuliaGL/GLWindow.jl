@@ -69,7 +69,7 @@ function update(window::Window, key::Symbol, value; keepsimilar = false)
 	screen = WINDOW_TO_SCREEN_DICT[window]
 	input = screen.inputs[key]
 	if keepsimilar || input.value != value
-		 push!(input, value)
+		@async push!(input, value)
 	end
 end
 
@@ -102,14 +102,14 @@ function key_pressed(window::Window, button::Cint, scancode::Cint, action::Cint,
 		buttonI 		= int(button)
 		if action == GLFW.PRESS  
 			buttondown 	= screen.inputs[:buttondown]
-			push!(buttondown, buttonI)
-			push!(keyset, buttonI)
-			push!(buttonspressed, keyset)
+			@async push!(buttondown, buttonI)
+			@async push!(keyset, buttonI)
+			@async push!(buttonspressed, keyset)
 		elseif action == GLFW.RELEASE 
 			buttonreleased 	= screen.inputs[:buttonreleased]
-			push!(buttonreleased, buttonI)
+			@async push!(buttonreleased, buttonI)
 			setdiff!(keyset, Set(buttonI))
-			push!(buttonspressed, keyset)
+			@async push!(buttonspressed, keyset)
 		end
 	end
 	return nothing
@@ -122,20 +122,21 @@ function mouse_clicked(window::Window, button::Cint, action::Cint, mods::Cint)
 	buttonI 		= int(button)
 	if action == GLFW.PRESS  
 		buttondown 	= screen.inputs[:mousedown]
-		 push!(buttondown, buttonI)
-		push!(keyset, buttonI)
-		 push!(buttonspressed, keyset)
+		@async push!(buttondown, buttonI)
+		@async push!(keyset, buttonI)
+		@async push!(buttonspressed, keyset)
 	elseif action == GLFW.RELEASE 
 		buttonreleased 	= screen.inputs[:mousereleased]
-		 push!(buttonreleased, buttonI)
+		 @async push!(buttonreleased, buttonI)
 		setdiff!(keyset, Set(buttonI))
-		 push!(buttonspressed, keyset)
+		 @async push!(buttonspressed, keyset)
 	end
 	return nothing
 end
 
 function unicode_input(window::Window, c::Cuint)
-	update(window, :unicodeinput, char(c), keepsimilar = true)
+	update(window, :unicodeinput, [char(c)], keepsimilar = true)
+	update(window, :unicodeinput, Char[], keepsimilar = true)
 	return nothing
 end
 
@@ -145,10 +146,10 @@ function cursor_position(window::Window, x::Cdouble, y::Cdouble)
 end
 function scroll(window::Window, xoffset::Cdouble, yoffset::Cdouble)
 	screen = WINDOW_TO_SCREEN_DICT[window]
-	push!(screen.inputs[:scroll_x], int(xoffset))
-	push!(screen.inputs[:scroll_y], int(yoffset))
-	push!(screen.inputs[:scroll_x], int(0))
-	push!(screen.inputs[:scroll_y], int(0))
+	@async push!(screen.inputs[:scroll_x], int(xoffset))
+	@async push!(screen.inputs[:scroll_y], int(yoffset))
+	@async push!(screen.inputs[:scroll_x], int(0))
+	@async push!(screen.inputs[:scroll_y], int(0))
 	return nothing
 end
 function entered_window(window::Window, entered::Cint)
@@ -156,18 +157,7 @@ function entered_window(window::Window, entered::Cint)
 	return nothing
 end
 
-function renderloop(window)
-	# Loop until the user closes the window
-	while !GLFW.WindowShouldClose(window.glfwWindow)
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
-		renderloop()
-
-		GLFW.SwapBuffers(window.glfwWindow)
-		GLFW.PollEvents()
-	end
-	GLFW.Terminate()
-end
 function openglerrorcallback(
 				source::GLenum, typ::GLenum,
 				id::GLuint, severity::GLenum,
@@ -190,33 +180,7 @@ function openglerrorcallback(
 	nothing
 end
 
-global const OPENGL_CONTEXT = (Symbol => Any)[]
-global GLSL_VERSION = "OPENGL not loaded yet"
 
-function createcontextinfo(dict)
-	global GLSL_VERSION
-	glsl = split(bytestring(glGetString(GL_SHADING_LANGUAGE_VERSION)), ['.', ' '])
-	if length(glsl) >= 2
-		glsl = VersionNumber(int(glsl[1]), int(glsl[2])) 
-		GLSL_VERSION = string(glsl.major) * rpad(string(glsl.minor),2,"0")
-	else
-		error("Unexpected version number string. Please report this bug! Version string: $(glsl)")
-	end
-
-	glv = split(bytestring(glGetString(GL_VERSION)), ['.', ' '])
-	if length(glv) >= 2
-		glv = VersionNumber(int(glv[1]), int(glv[2])) 
-	else
-		error("Unexpected version number string. Please report this bug! Version string: $(glsl)")
-	end
-	dict[:glsl_version] 	= glsl
-	dict[:gl_version] 		= glv
-	dict[:gl_vendor] 		= bytestring(glGetString(GL_VENDOR))
-	dict[:gl_renderer] 		= bytestring(glGetString(GL_RENDERER))
-	n = GLint[0]
-	glGetIntegerv(GL_NUM_EXTENSIONS, n)
-	dict[:gl_extensions] 	= [ bytestring(glGetStringi(GL_EXTENSIONS, i)) for i = 0:(n[1]-1) ]
-end
 
 global const _openglerrorcallback = cfunction(openglerrorcallback, Void,
 										(GLenum, GLenum,
@@ -248,8 +212,6 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
 		glDebugMessageCallbackARB(_openglerrorcallback, C_NULL)
 	end
 
-	createcontextinfo(OPENGL_CONTEXT)
-
 	GLFW.SetWindowCloseCallback(window, window_closed)
 	GLFW.SetWindowSizeCallback(window, window_resized)
 	GLFW.SetWindowPosCallback(window, window_position)
@@ -264,6 +226,8 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
 	GLFW.SetWindowSize(window, w, h) # Seems to be necessary to guarantee that window > 0
 
 	width, height 		= GLFW.GetWindowSize(window)
+	fwidth, fheight 	= GLFW.GetFramebufferSize(window)
+	framebuffers 		= Input(Vector2{Int}(fwidth, fheight))
 	window_size 		= Input(Vector4{Int}(0, 0, width, height))
 	glViewport(0, 0, width, height)
 
@@ -276,10 +240,10 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
 		:open 							=> Input(true),
 
 		:window_size					=> window_size,
-		:framebuffer_size 				=> Input(Vector2(0)),
+		:framebuffer_size 				=> framebuffers,
 		:windowposition					=> Input(Vector2(0)),
 
-		:unicodeinput					=> Input('0'),
+		:unicodeinput					=> Input(Char[]),
 
 		:buttonspressed					=> Input(IntSet()),
 		:buttondown						=> Input(0),
