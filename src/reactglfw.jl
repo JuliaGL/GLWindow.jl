@@ -1,6 +1,6 @@
 import GLFW.Window, GLFW.Monitor, GLAbstraction.update, GLAbstraction.render
 export UnicodeInput, KeyPressed, MouseClicked, MouseMoved, EnteredWindow, WindowResized
-export MouseDragged, Scrolled, Window, renderloop, leftbuttondragged, middlebuttondragged, rightbuttondragged, leftclickup, leftclickdown
+export MouseDragged, Scrolled, Window, leftclickdown, Screen
 
 
 
@@ -61,7 +61,19 @@ immutable Screen
 		new(id::Symbol, parent, children, inputs, renderList, glfwWindow)
 	end
 end
-const ROOT_SCREEN = Screen(:root, Screen[], Dict{Symbol, Any}(), {})
+
+function Base.show(io::IO, m::Screen)
+	println(io, "name: ", m.id)
+	println(io, "parent: ", m.parent.id)
+	println(io, "children: ", length(m.children))
+	println(io, "Inputs:")
+	map(m.inputs) do x
+		key, value = x
+		println(io, "  ", key, " => ", typeof(value))
+	end
+end
+
+const ROOT_SCREEN = Screen(:root, Screen[], Dict{Symbol, Any}(), Any[])
 
 const WINDOW_TO_SCREEN_DICT = Dict{Window, Screen}()
 
@@ -69,7 +81,7 @@ function update(window::Window, key::Symbol, value; keepsimilar = false)
 	screen = WINDOW_TO_SCREEN_DICT[window]
 	input = screen.inputs[key]
 	if keepsimilar || input.value != value
-		@async push!(input, value)
+		push!(input, value)
 	end
 end
 
@@ -102,14 +114,14 @@ function key_pressed(window::Window, button::Cint, scancode::Cint, action::Cint,
 		buttonI 		= int(button)
 		if action == GLFW.PRESS  
 			buttondown 	= screen.inputs[:buttondown]
-			@async push!(buttondown, buttonI)
-			@async push!(keyset, buttonI)
-			@async push!(buttonspressed, keyset)
+			push!(buttondown, buttonI)
+			push!(keyset, buttonI)
+			push!(buttonspressed, keyset)
 		elseif action == GLFW.RELEASE 
 			buttonreleased 	= screen.inputs[:buttonreleased]
-			@async push!(buttonreleased, buttonI)
+			push!(buttonreleased, buttonI)
 			setdiff!(keyset, Set(buttonI))
-			@async push!(buttonspressed, keyset)
+			push!(buttonspressed, keyset)
 		end
 	end
 	return nothing
@@ -122,14 +134,14 @@ function mouse_clicked(window::Window, button::Cint, action::Cint, mods::Cint)
 	buttonI 		= int(button)
 	if action == GLFW.PRESS  
 		buttondown 	= screen.inputs[:mousedown]
-		@async push!(buttondown, buttonI)
-		@async push!(keyset, buttonI)
-		@async push!(buttonspressed, keyset)
+		push!(buttondown, buttonI)
+		push!(keyset, buttonI)
+		push!(buttonspressed, keyset)
 	elseif action == GLFW.RELEASE 
 		buttonreleased 	= screen.inputs[:mousereleased]
-		 @async push!(buttonreleased, buttonI)
+		push!(buttonreleased, buttonI)
 		setdiff!(keyset, Set(buttonI))
-		 @async push!(buttonspressed, keyset)
+		push!(buttonspressed, keyset)
 	end
 	return nothing
 end
@@ -146,10 +158,10 @@ function cursor_position(window::Window, x::Cdouble, y::Cdouble)
 end
 function scroll(window::Window, xoffset::Cdouble, yoffset::Cdouble)
 	screen = WINDOW_TO_SCREEN_DICT[window]
-	@async push!(screen.inputs[:scroll_x], int(xoffset))
-	@async push!(screen.inputs[:scroll_y], int(yoffset))
-	@async push!(screen.inputs[:scroll_x], int(0))
-	@async push!(screen.inputs[:scroll_y], int(0))
+	push!(screen.inputs[:scroll_x], int(xoffset))
+	push!(screen.inputs[:scroll_y], int(yoffset))
+	push!(screen.inputs[:scroll_x], int(0))
+	push!(screen.inputs[:scroll_y], int(0))
 	return nothing
 end
 function entered_window(window::Window, entered::Cint)
@@ -171,12 +183,8 @@ function openglerrorcallback(
 					"| source: $(GLENUM(source).name) :: type: $(GLENUM(typ).name)\n"*
 					"| "*ascii(bytestring(message, length))*"\n"*
 					"|________________________________________________________________\n"
+	println(GLENUM(typ).name)
 
-	if typ == GL_DEBUG_TYPE_PERFORMANCE
-		println(errormessage)
-	else
-		error(errormessage)
-	end
 	nothing
 end
 
@@ -235,7 +243,7 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
 	mouseposition 		= lift((mouse, window) -> Vector2(mouse[1], window[4] - mouse[2]), Vector2{Float64}, mouseposition_glfw, window_size)
 
 	
-	inputs = [
+	inputs = @compat Dict(
 		:insidewindow 					=> Input(false),
 		:open 							=> Input(true),
 
@@ -258,10 +266,9 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
 
 		:scroll_x						=> Input(0),
 		:scroll_y						=> Input(0)
-		
-	]
+	)
 
-	screen = Screen(symbol(name), ROOT_SCREEN, Screen[], inputs, {}, window)
+	screen = Screen(symbol(name), ROOT_SCREEN, Screen[], inputs, Any[], window)
 	WINDOW_TO_SCREEN_DICT[window] = screen
 	
 
