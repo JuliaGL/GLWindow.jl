@@ -88,19 +88,29 @@ end
 
 function Screen(
         parent::Screen;
-        area = parent.area,
-        children::Vector{Screen} = Screen[],
+        area 				      = parent.area,
+        children::Vector{Screen}  = Screen[],
         inputs::Dict{Symbol, Any} = parent.inputs,
         renderlist::Vector{RenderObject} = RenderObject[],
 
-        hidden::Signal{Bool} = parent.hidden,
+        hidden::Signal{Bool}   = parent.hidden,
         hasfocus::Signal{Bool} = parent.hasfocus,
 
-        perspectivecam::PerspectiveCamera = parent.perspectivecam,
-        orthographiccam::OrthographicCamera = parent.orthographiccam,
+        
         nativewindow::Window = parent.nativewindow)
 
-    Screen(area, parent, children, inputs, renderlist, hidden, hasfocus, perspectivecam, orthographiccam, nativewindow)
+	mouse = filter(Vector2(0.0), inputs[:mouseposition]) do mpos
+		isinside(area.value, mpos...) && !any(children) do screen 
+			isinside(screen.area.value, mpos...)
+		end
+	end
+
+	camera_input = merge(inputs, Dict(:mouseposition=>mouse, :window_size=>lift(x->Vector4(x.x, x.y, x.w, x.h), area)))
+	ocamera      = OrthographicPixelCamera(camera_input)
+	pcamera  	 = PerspectiveCamera(camera_input, Vec3(2), Vec3(0))
+    screen = Screen(area, parent, children, inputs, renderlist, hidden, hasfocus, pcamera, ocamera, nativewindow)
+	push!(parent.children, screen)
+	screen
 end
 function GLAbstraction.isinside(x::Screen, position::Vector2)
 	!any(screen->inside(screen.area.value, position...), x.children) && inside(x.area, position...)
@@ -145,6 +155,7 @@ end
 
 function GLAbstraction.render(x::Screen)
     glViewport(x.area.value)
+
     render(x.renderlist)
     render(x.children)
 end
