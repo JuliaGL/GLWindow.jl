@@ -89,9 +89,9 @@ end
 function Screen(
         parent::Screen;
         area = parent.area,
-        children::Vector{Screen} = parent.children,
+        children::Vector{Screen} = Screen[],
         inputs::Dict{Symbol, Any} = parent.inputs,
-        renderlist::Vector{RenderObject} = parent.renderlist,
+        renderlist::Vector{RenderObject} = RenderObject[],
 
         hidden::Signal{Bool} = parent.hidden,
         hasfocus::Signal{Bool} = parent.hasfocus,
@@ -100,10 +100,10 @@ function Screen(
         orthographiccam::OrthographicCamera = parent.orthographiccam,
         nativewindow::Window = parent.nativewindow)
 
-    new(area, parent, children, inputs, renderList, hidden, hasfocus, perspectivecam, orthographiccam, nativewindow)
+    Screen(area, parent, children, inputs, renderlist, hidden, hasfocus, perspectivecam, orthographiccam, nativewindow)
 end
 function GLAbstraction.isinside(x::Screen, position::Vector2)
-	!any(screen->inside(screen.area.value, position), x.children) && inside(x.area)
+	!any(screen->inside(screen.area.value, position...), x.children) && inside(x.area, position...)
 end
 
 function Screen(obj::RenderObject, parent::Screen)
@@ -114,7 +114,7 @@ function Screen(obj::RenderObject, parent::Screen)
 	mouse 	 = filter(inside, Input(Screen), parent.inputs[:mouseposition])
 
 	hasfocus = lift(parent.inputs[:mouseposition], parent.inputs[:mousebuttonpressed], screen.area) do pos, buttons, area
-		isinside(pos, area) && !isempty(bottons)
+		isinside(area, pos...) && !isempty(bottons)
 	end
 	buttons  = menubar(screen)
 	push!(parent.children, screen)
@@ -132,7 +132,7 @@ function Screen(style::Style{:Default}, parent=first(SCREEN_STACK))
 	opxcamera   = OrthographicPixelCamera(inputs)
 	pcamera  	= PerspectiveCamera(inputs)
 	hasfocus 	= lift(parent.inputs[:mouseposition], parent.inputs[:mousebuttonpressed], screen.area) do pos, buttons, area
-		isinside(pos, area) && !isempty(bottons)
+		isinside(area, pos...) && !isempty(bottons)
 	end
 	screen 		= Screen(area, parent, children=Screen[], inputs, renderList, hidden, hasfocus, perspectivecam, orthographiccam)
 	buttons     = menubar(screen, style)
@@ -144,7 +144,7 @@ end
 
 
 function GLAbstraction.render(x::Screen)
-    glViewport(x.area)
+    glViewport(x.area.value)
     render(x.renderlist)
     render(x.children)
 end
@@ -360,7 +360,7 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
 	children = Screen[]
 	mouse 	 = filter(Vector2(0.0), mouseposition) do mpos
 		!any(children) do screen 
-			isinside(screen.area.value, mpos)
+			isinside(screen.area.value, mpos...)
 		end
 	end
 	camera_input = merge(inputs, Dict(:mouseposition=>mouse))

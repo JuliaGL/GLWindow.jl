@@ -8,6 +8,7 @@ using ImmutableArrays
 using Compat
 
 export createwindow
+export Screen
 
 include("reactglfw.jl")
 
