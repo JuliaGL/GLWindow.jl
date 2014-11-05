@@ -99,13 +99,18 @@ function Screen(
         
         nativewindow::Window = parent.nativewindow)
 
-	mouse = filter(Vector2(0.0), inputs[:mouseposition]) do mpos
+	insidescreen = lift(inputs[:mouseposition]) do mpos
 		isinside(area.value, mpos...) && !any(children) do screen 
 			isinside(screen.area.value, mpos...)
 		end
 	end
 
-	camera_input = merge(inputs, Dict(:mouseposition=>mouse, :window_size=>lift(x->Vector4(x.x, x.y, x.w, x.h), area)))
+	camera_input = merge(inputs, @compat(Dict(
+		:mouseposition 	=> keepwhen(insidescreen, Vector2(0.0), inputs[:mouseposition]), 
+		:scroll_x 		=> keepwhen(insidescreen, 0, inputs[:scroll_x]), 
+		:scroll_y 		=> keepwhen(insidescreen, 0, inputs[:scroll_y]), 
+		:window_size 	=> lift(x->Vector4(x.x, x.y, x.w, x.h), area)
+	)))
 	ocamera      = OrthographicPixelCamera(camera_input)
 	pcamera  	 = PerspectiveCamera(camera_input, Vec3(2), Vec3(0))
     screen = Screen(area, parent, children, inputs, renderlist, hidden, hasfocus, pcamera, ocamera, nativewindow)
@@ -161,7 +166,6 @@ function GLAbstraction.render(x::Screen)
 end
 function Base.show(io::IO, m::Screen)
 	println(io, "name: ", m.id)
-	println(io, "parent: ", m.parent.id)
 	println(io, "children: ", length(m.children))
 	println(io, "Inputs:")
 	map(m.inputs) do x
