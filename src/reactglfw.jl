@@ -143,7 +143,7 @@ function Screen(style::Style{:Default}, parent=first(SCREEN_STACK))
 	screen 	 	= Screen(parent)
 	mouse 	 	= filter(Input(Screen), parent.inputs[:mouseposition]) do screen, mpos
 	end
-	inputs 		= merge(parent.inputs, Dict(:mouseposition=>mouse))
+	inputs 		= merge(parent.inputs, @compat(Dict(:mouseposition=>mouse)))
 	opxcamera   = OrthographicPixelCamera(inputs)
 	pcamera  	= PerspectiveCamera(inputs)
 	hasfocus 	= lift(parent.inputs[:mouseposition], parent.inputs[:mousebuttonpressed], screen.area) do pos, buttons, area
@@ -378,7 +378,7 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
 			isinside(screen.area.value, mpos...)
 		end
 	end
-	camera_input = merge(inputs, Dict(:mouseposition=>mouse))
+	camera_input = merge(inputs, @compat(Dict(:mouseposition=>mouse)))
 	pcamera  	 = PerspectiveCamera(camera_input, Vec3(2), Vec3(0))
 	pocamera     = OrthographicPixelCamera(camera_input)
 
