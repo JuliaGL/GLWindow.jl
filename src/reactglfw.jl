@@ -286,7 +286,9 @@ function openglerrorcallback(
 					"| "*ascii(bytestring(message, length))*"\n"*
 					"|________________________________________________________________\n"
 	println(GLENUM(typ).name)
-
+	if typ == GL_DEBUG_TYPE_ERROR
+		error(errormessage)
+	end
 	nothing
 end
 
