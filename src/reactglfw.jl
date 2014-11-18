@@ -174,13 +174,22 @@ function Base.show(io::IO, m::Screen)
 	end
 end
 
-const WINDOW_TO_SCREEN_DICT = Dict{Window, Screen}()
+const WINDOW_TO_SCREEN_DICT 	   = Dict{Window, Screen}()
+Base.hash(x::Window, h::Int64) 	   = hash(convert(Uint, x.ref), h)
+Base.isequal(a::Window, b::Window) = isequal(convert(Uint, a.ref), convert(Uint, b.ref))
 
 function update(window::Window, key::Symbol, value; keepsimilar = false)
-	screen = WINDOW_TO_SCREEN_DICT[window]
-	input = screen.inputs[key]
-	if keepsimilar || input.value != value
-		push!(input, value)
+	if haskey(WINDOW_TO_SCREEN_DICT, window)
+		screen  = WINDOW_TO_SCREEN_DICT[window]
+		input 	= screen.inputs[key]
+		if keepsimilar || input.value != value
+			push!(input, value)
+		end
+	else
+		windows = foldl("", keys(WINDOW_TO_SCREEN_DICT)) do v0, x
+			v0 * string(x) * " ptr: " * string(x.ref) * "\n"
+		end
+		error("Window from callback unrecognized. Window:  $window ptr $(window.ref)\navailable windows:\n$(windows)\n")
 	end
 end
 
