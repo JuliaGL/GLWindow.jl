@@ -175,8 +175,11 @@ function Base.show(io::IO, m::Screen)
 end
 
 const WINDOW_TO_SCREEN_DICT 	   = Dict{Window, Screen}()
+
+import Base.(==)
 Base.hash(x::Window, h::Int64) 	   = hash(convert(Uint, x.ref), h)
 Base.isequal(a::Window, b::Window) = isequal(convert(Uint, a.ref), convert(Uint, b.ref))
+Base.==(a::Window, b::Window) 	   = convert(Uint, a.ref) == convert(Uint, b.ref)
 
 function update(window::Window, key::Symbol, value; keepsimilar = false)
 	if haskey(WINDOW_TO_SCREEN_DICT, window)
