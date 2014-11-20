@@ -174,25 +174,30 @@ function Base.show(io::IO, m::Screen)
 	end
 end
 
+
 const WINDOW_TO_SCREEN_DICT 	   = Dict{Window, Screen}()
+const GLFW_SCREEN_STACK 	   	   = Screen[]
+println("Empty Screen Stacks initialized")
+
 
 import Base.(==)
 Base.hash(x::Window, h::Int64) 	   = hash(convert(Uint, x.ref), h)
 Base.isequal(a::Window, b::Window) = isequal(convert(Uint, a.ref), convert(Uint, b.ref))
-Base.==(a::Window, b::Window) 	   = convert(Uint, a.ref) == convert(Uint, b.ref)
+==(a::Window, b::Window) 	       = convert(Uint, a.ref) == convert(Uint, b.ref)
 
 function update(window::Window, key::Symbol, value; keepsimilar = false)
-	if haskey(WINDOW_TO_SCREEN_DICT, window)
-		screen  = WINDOW_TO_SCREEN_DICT[window]
-		input 	= screen.inputs[key]
-		if keepsimilar || input.value != value
-			push!(input, value)
-		end
-	else
+	if !haskey(WINDOW_TO_SCREEN_DICT, window)
 		windows = foldl("", keys(WINDOW_TO_SCREEN_DICT)) do v0, x
 			v0 * string(x) * " ptr: " * string(x.ref) * "\n"
 		end
-		error("Window from callback unrecognized. Window:  $window ptr $(window.ref)\navailable windows:\n$(windows)\n")
+		warning("Window from callback unrecognized. Window:  $window ptr $(window.ref)\navailable windows:\n$(windows)\n")
+		# Workaround for Projector error:
+		WINDOW_TO_SCREEN_DICT[window] = first(GLFW_SCREEN_STACK)
+	end
+	screen  = WINDOW_TO_SCREEN_DICT[window]
+	input 	= screen.inputs[key]
+	if keepsimilar || input.value != value
+		push!(input, value)
 	end
 end
 
@@ -398,7 +403,7 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
 
 	screen = Screen(lift(x->Rectangle(x...), window_size), children, inputs, RenderObject[], Input(false), inputs[:hasfocus], pcamera, pocamera, window)
 	WINDOW_TO_SCREEN_DICT[window] = screen
-	
+	push!(GLFW_SCREEN_STACK, screen)
 
 	init_glutils()
 	screen
