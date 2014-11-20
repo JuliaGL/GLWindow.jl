@@ -192,12 +192,12 @@ function update(window::Window, key::Symbol, value; keepsimilar = false)
 		end
 		println("Window from callback unrecognized. Window:  $window ptr $(window.ref)\navailable windows:\n$(windows)\n")
 		# Workaround for Projector error:
-		WINDOW_TO_SCREEN_DICT[window] = first(GLFW_SCREEN_STACK)
-	end
-	screen  = WINDOW_TO_SCREEN_DICT[window]
-	input 	= screen.inputs[key]
-	if keepsimilar || input.value != value
-		push!(input, value)
+	else
+		screen  = WINDOW_TO_SCREEN_DICT[window]
+		input 	= screen.inputs[key]
+		if keepsimilar || input.value != value
+			push!(input, value)
+		end
 	end
 end
 
