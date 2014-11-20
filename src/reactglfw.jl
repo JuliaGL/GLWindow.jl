@@ -190,7 +190,7 @@ function update(window::Window, key::Symbol, value; keepsimilar = false)
 		windows = foldl("", keys(WINDOW_TO_SCREEN_DICT)) do v0, x
 			v0 * string(x) * " ptr: " * string(x.ref) * "\n"
 		end
-		warning("Window from callback unrecognized. Window:  $window ptr $(window.ref)\navailable windows:\n$(windows)\n")
+		println("Window from callback unrecognized. Window:  $window ptr $(window.ref)\navailable windows:\n$(windows)\n")
 		# Workaround for Projector error:
 		WINDOW_TO_SCREEN_DICT[window] = first(GLFW_SCREEN_STACK)
 	end
