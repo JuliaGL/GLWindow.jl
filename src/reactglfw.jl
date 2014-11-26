@@ -177,7 +177,6 @@ end
 
 const WINDOW_TO_SCREEN_DICT 	   = Dict{Window, Screen}()
 const GLFW_SCREEN_STACK 	   	   = Screen[]
-println("Empty Screen Stacks initialized")
 
 
 import Base.(==)
@@ -186,13 +185,7 @@ Base.isequal(a::Window, b::Window) = isequal(convert(Uint, a.ref), convert(Uint,
 ==(a::Window, b::Window) 	       = convert(Uint, a.ref) == convert(Uint, b.ref)
 
 function update(window::Window, key::Symbol, value; keepsimilar = false)
-	if !haskey(WINDOW_TO_SCREEN_DICT, window)
-		windows = foldl("", keys(WINDOW_TO_SCREEN_DICT)) do v0, x
-			v0 * string(x) * " ptr: " * string(x.ref) * "\n"
-		end
-		println("Window from callback unrecognized. Window:  $window ptr $(window.ref)\navailable windows:\n$(windows)\n")
-		# Workaround for Projector error:
-	else
+	if haskey(WINDOW_TO_SCREEN_DICT, window)
 		screen  = WINDOW_TO_SCREEN_DICT[window]
 		input 	= screen.inputs[key]
 		if keepsimilar || input.value != value
