@@ -352,7 +352,7 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
 	fwidth, fheight 	= GLFW.GetFramebufferSize(window)
 	framebuffers 		= Input(Vector2{Int}(fwidth, fheight))
 	window_size 		= Input(Vector4{Int}(0, 0, width, height))
-	glViewport(0, 0, width, height)
+	glViewport(0, 0, fwidth, fheight)
 
 
 	mouseposition_glfw 	= Input(Vector2(0.0))
@@ -394,7 +394,7 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
 	pcamera  	 = PerspectiveCamera(camera_input, Vec3(2), Vec3(0))
 	pocamera     = OrthographicPixelCamera(camera_input)
 
-	screen = Screen(lift(x->Rectangle(x...), window_size), children, inputs, RenderObject[], Input(false), inputs[:hasfocus], pcamera, pocamera, window)
+	screen = Screen(lift(x->Rectangle(0, 0, x...), framebuffers), children, inputs, RenderObject[], Input(false), inputs[:hasfocus], pcamera, pocamera, window)
 	WINDOW_TO_SCREEN_DICT[window] = screen
 	push!(GLFW_SCREEN_STACK, screen)
 
