@@ -157,9 +157,16 @@ function Screen(style::Style{:Default}, parent=first(SCREEN_STACK))
 
 end
 
-
+dict = Dict{Symbol, Vec4}()
 function GLAbstraction.render(x::Screen)
+ 	glEnable(GL_SCISSOR_TEST)
+    glScissor(x.area.value.x, x.area.value.y, x.area.value.w, x.area.value.h)
     glViewport(x.area.value)
+    color = get!(dict, x.id) do 
+    	Vec4(rand(), rand(), rand(), 1)
+    end
+    glClearColor(color...)
+  	glClear(GL_COLOR_BUFFER_BIT)
 
     render(x.renderlist)
     render(x.children)
@@ -295,7 +302,6 @@ function openglerrorcallback(
 					"| source: $(GLENUM(source).name) :: type: $(GLENUM(typ).name)\n"*
 					"| "*ascii(bytestring(message, length))*"\n"*
 					"|________________________________________________________________\n"
-	println(GLENUM(typ).name)
 	if typ == GL_DEBUG_TYPE_ERROR
 		error(errormessage)
 	end
