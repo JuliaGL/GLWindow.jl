@@ -86,31 +86,32 @@ immutable Screen
     end
 end
 
+#Screen constructor
 function Screen(
         parent::Screen;
-        area 				      = parent.area,
-        children::Vector{Screen}  = Screen[],
-        inputs::Dict{Symbol, Any} = parent.inputs,
+        area 				      		 = parent.area,
+        children::Vector{Screen}  		 = Screen[],
+        inputs::Dict{Symbol, Any} 		 = parent.inputs,
         renderlist::Vector{RenderObject} = RenderObject[],
 
-        hidden::Signal{Bool}   = parent.hidden,
-        hasfocus::Signal{Bool} = parent.hasfocus,
-
+        hidden::Signal{Bool}   			 = parent.hidden,
+        hasfocus::Signal{Bool} 			 = parent.hasfocus,
         
-        nativewindow::Window = parent.nativewindow)
-
+        nativewindow::Window 			 = parent.nativewindow)
+	#checks if mouse is inside screen
 	insidescreen = lift(inputs[:mouseposition]) do mpos
 		isinside(area.value, mpos...) && !any(children) do screen 
 			isinside(screen.area.value, mpos...)
 		end
 	end
-
+	# creates signals for the camera, which are only active if mouse is inside screen
 	camera_input = merge(inputs, @compat(Dict(
 		:mouseposition 	=> keepwhen(insidescreen, Vector2(0.0), inputs[:mouseposition]), 
 		:scroll_x 		=> keepwhen(insidescreen, 0, inputs[:scroll_x]), 
 		:scroll_y 		=> keepwhen(insidescreen, 0, inputs[:scroll_y]), 
 		:window_size 	=> lift(x->Vector4(x.x, x.y, x.w, x.h), area)
 	)))
+	# creates cameras for the sceen with the new inputs
 	ocamera      = OrthographicPixelCamera(camera_input)
 	pcamera  	 = PerspectiveCamera(camera_input, Vec3(2), Vec3(0))
     screen = Screen(area, parent, children, inputs, renderlist, hidden, hasfocus, pcamera, ocamera, nativewindow)
@@ -162,11 +163,6 @@ function GLAbstraction.render(x::Screen)
  	glEnable(GL_SCISSOR_TEST)
     glScissor(x.area.value.x, x.area.value.y, x.area.value.w, x.area.value.h)
     glViewport(x.area.value)
-    color = get!(dict, x.id) do 
-    	Vec4(rand(), rand(), rand(), 1)
-    end
-    glClearColor(color...)
-  	glClear(GL_COLOR_BUFFER_BIT)
 
     render(x.renderlist)
     render(x.children)
