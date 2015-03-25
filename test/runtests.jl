@@ -9,6 +9,3 @@ GLFW.PollEvents()
 
 GLFW.Terminate()
 
-
-println("\033[32;1mSUCCESS\033[0m")
-

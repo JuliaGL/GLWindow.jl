@@ -1,6 +1,4 @@
-import GLFW.Window, GLFW.Monitor, GLAbstraction.render
-export UnicodeInput, KeyPressed, MouseClicked, MouseMoved, EnteredWindow, WindowResized
-export MouseDragged, Scrolled, Window, leftclickdown, Screen
+
 
 
 
@@ -257,7 +255,7 @@ function mouse_clicked(window::Window, button::Cint, action::Cint, mods::Cint)
 end
 
 function unicode_input(window::Window, c::Cuint)
-	update(window, :unicodeinput, [char(c)], keepsimilar = true)
+	update(window, :unicodeinput, [Char(c)], keepsimilar = true)
 	update(window, :unicodeinput, Char[], keepsimilar = true)
 	return nothing
 end
