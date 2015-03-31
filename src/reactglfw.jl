@@ -358,38 +358,38 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
 	mouseposition 		= lift((mouse, window) -> Vector2(mouse[1], window[4] - mouse[2]), Vector2{Float64}, mouseposition_glfw, window_size)
 
 	
-	inputs = @compat Dict(
-		:insidewindow 					=> Input(false),
-		:open 							=> Input(true),
-		:hasfocus						=> Input(false),
+	inputs = Dict{Symbol, Any}()
+	inputs[:insidewindow] = Input(false)
+	inputs[:open] = Input(true)
+	inputs[:hasfocus] = Input(false)
 
-		:window_size					=> window_size,
-		:framebuffer_size 				=> framebuffers,
-		:windowposition					=> Input(Vector2(0)),
+	inputs[:window_size] = window_size
+	inputs[:framebuffer_size] = framebuffers
+	inputs[:windowposition] = Input(Vector2(0))
 
-		:unicodeinput					=> Input(Char[]),
+	inputs[:unicodeinput] = Input(Char[])
 
-		:buttonspressed					=> Input(IntSet()),
-		:buttondown						=> Input(0),
-		:buttonreleased					=> Input(0),
+	inputs[:buttonspressed] = Input(IntSet())
+	inputs[:buttondown] = Input(0)
+	inputs[:buttonreleased] = Input(0)
 
-		:mousebuttonspressed			=> Input(IntSet()),
-		:mousedown						=> Input(0),
-		:mousereleased					=> Input(0),
+	inputs[:mousebuttonspressed] = Input(IntSet())
+	inputs[:mousedown] = Input(0)
+	inputs[:mousereleased] = Input(0)
 
-		:mouseposition					=> mouseposition,
-		:mouseposition_glfw_coordinates	=> mouseposition_glfw,
+	inputs[:mouseposition] = mouseposition
+	inputs[:mouseposition_glfw_coordinates] = mouseposition_glfw
 
-		:scroll_x						=> Input(zero(Float64)),
-		:scroll_y						=> Input(zero(Float64))
-	)
+	inputs[:scroll_x] = Input(0.0)
+	inputs[:scroll_y] = Input(0.0)
+
 	children = Screen[]
 	mouse 	 = filter(Vector2(0.0), mouseposition) do mpos
 		!any(children) do screen 
 			isinside(screen.area.value, mpos...)
 		end
 	end
-	camera_input = merge(inputs, @compat(Dict(:mouseposition=>mouse)))
+	camera_input = merge(inputs, Dict(:mouseposition=>mouse))
 	pcamera  	 = PerspectiveCamera(camera_input, Vec3(2), Vec3(0))
 	pocamera     = OrthographicPixelCamera(camera_input)
 
