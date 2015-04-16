@@ -7,6 +7,10 @@ using Reactive
 using ImmutableArrays
 using Compat
 
+import GLFW.Window
+import GLFW.Monitor
+import GLAbstraction.render
+
 export createwindow
 export Screen
 
