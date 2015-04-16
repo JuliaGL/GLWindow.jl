@@ -1,8 +1,3 @@
-import GLFW.Window, GLFW.Monitor, GLAbstraction.update, GLAbstraction.render
-export UnicodeInput, KeyPressed, MouseClicked, MouseMoved, EnteredWindow, WindowResized
-export MouseDragged, Scrolled, Window, leftclickdown, Screen
-
-
 
 immutable MonitorProperties
 	name::ASCIIString
@@ -38,7 +33,7 @@ function Base.show(io::IO, m::MonitorProperties)
 	println(io, "dpi: ", m.dpi[1], "x", m.dpi[2])
 end
 
-immutable Screen
+type Screen
     id::Symbol
     area
     parent::Screen
@@ -177,7 +172,6 @@ function Base.show(io::IO, m::Screen)
 	end
 end
 
-
 const WINDOW_TO_SCREEN_DICT 	   = Dict{Window, Screen}()
 const GLFW_SCREEN_STACK 	   	   = Screen[]
 
@@ -203,15 +197,15 @@ function window_closed(window)
 end
 
 function window_resized(window, w::Cint, h::Cint)
-	update(window, :window_size, Vector4(0, 0, int(w), int(h)))
+	update(window, :window_size, Vector4{Int}(0, 0, w, h))
     return nothing
 end
 function framebuffer_size(window, w::Cint, h::Cint)
-	update(window, :framebuffer_size, Vector2(int(w), int(h)))
+	update(window, :framebuffer_size, Vector2{Int}(w, h))
     return nothing
 end
 function window_position(window, x::Cint, y::Cint)
-	update(window, :windowposition, Vector2(int(x),int(y)))
+	update(window, :windowposition, Vector2{Int}(x,y))
     return nothing
 end
 
@@ -222,7 +216,7 @@ function key_pressed(window::Window, button::Cint, scancode::Cint, action::Cint,
 	if sign(button) == 1
 		buttonspressed 	= screen.inputs[:buttonspressed]
 		keyset 			= buttonspressed.value
-		buttonI 		= int(button)
+		buttonI 		= @compat(Int(button))
 		if action == GLFW.PRESS  
 			buttondown 	= screen.inputs[:buttondown]
 			push!(buttondown, buttonI)
@@ -242,7 +236,7 @@ function mouse_clicked(window::Window, button::Cint, action::Cint, mods::Cint)
 	
 	buttonspressed 	= screen.inputs[:mousebuttonspressed]
 	keyset 			= buttonspressed.value
-	buttonI 		= int(button)
+	buttonI 		= @compat(Int(button))
 	if action == GLFW.PRESS  
 		buttondown 	= screen.inputs[:mousedown]
 		push!(buttondown, buttonI)
@@ -258,25 +252,25 @@ function mouse_clicked(window::Window, button::Cint, action::Cint, mods::Cint)
 end
 
 function unicode_input(window::Window, c::Cuint)
-	update(window, :unicodeinput, [char(c)], keepsimilar = true)
+	update(window, :unicodeinput, Char[c], keepsimilar = true)
 	update(window, :unicodeinput, Char[], keepsimilar = true)
 	return nothing
 end
 
 function cursor_position(window::Window, x::Cdouble, y::Cdouble)
-	update(window, :mouseposition_glfw_coordinates, Vector2(float64(x), float64(y)))
+	update(window, :mouseposition_glfw_coordinates, Vector2{Float64}(x, y))
 	return nothing
 end
 function hasfocus(window::Window, focus::Cint)
-	update(window, :hasfocus, bool(focus==GL_TRUE))
+	update(window, :hasfocus, focus==GL_TRUE)
 	return nothing
 end
 function scroll(window::Window, xoffset::Cdouble, yoffset::Cdouble)
 	screen = WINDOW_TO_SCREEN_DICT[window]
-	push!(screen.inputs[:scroll_x], int(xoffset))
-	push!(screen.inputs[:scroll_y], int(yoffset))
-	push!(screen.inputs[:scroll_x], int(0))
-	push!(screen.inputs[:scroll_y], int(0))
+	push!(screen.inputs[:scroll_x], @compat(Float64(xoffset)))
+	push!(screen.inputs[:scroll_y], @compat(Float64(yoffset)))
+	push!(screen.inputs[:scroll_x], zero(Float64))
+	push!(screen.inputs[:scroll_y], zero(Float64))
 	return nothing
 end
 function entered_window(window::Window, entered::Cint)
@@ -328,7 +322,6 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
 		GLFW.WindowHint(GLFW.OPENGL_PROFILE, GLFW.OPENGL_CORE_PROFILE)
 	end
 	
-	GLFW.WindowHint(GLFW.OPENGL_DEBUG_CONTEXT, debugging)
 	window = GLFW.CreateWindow(w, h, name)
 	GLFW.MakeContextCurrent(window)
 	GLFW.ShowWindow(window)
@@ -361,31 +354,31 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
 	mouseposition 		= lift((mouse, window) -> Vector2(mouse[1], window[4] - mouse[2]), Vector2{Float64}, mouseposition_glfw, window_size)
 
 	
-	inputs = @compat Dict(
-		:insidewindow 					=> Input(false),
-		:open 							=> Input(true),
-		:hasfocus						=> Input(false),
+	inputs = Dict{Symbol, Any}()
+	inputs[:insidewindow] = Input(false)
+	inputs[:open] = Input(true)
+	inputs[:hasfocus] = Input(false)
 
-		:window_size					=> window_size,
-		:framebuffer_size 				=> framebuffers,
-		:windowposition					=> Input(Vector2(0)),
+	inputs[:window_size] = window_size
+	inputs[:framebuffer_size] = framebuffers
+	inputs[:windowposition] = Input(Vector2(0))
 
-		:unicodeinput					=> Input(Char[]),
+	inputs[:unicodeinput] = Input(Char[])
 
-		:buttonspressed					=> Input(IntSet()),
-		:buttondown						=> Input(0),
-		:buttonreleased					=> Input(0),
+	inputs[:buttonspressed] = Input(IntSet())
+	inputs[:buttondown] = Input(0)
+	inputs[:buttonreleased] = Input(0)
 
-		:mousebuttonspressed			=> Input(IntSet()),
-		:mousedown						=> Input(0),
-		:mousereleased					=> Input(0),
+	inputs[:mousebuttonspressed] = Input(IntSet())
+	inputs[:mousedown] = Input(0)
+	inputs[:mousereleased] = Input(0)
 
-		:mouseposition					=> mouseposition,
-		:mouseposition_glfw_coordinates	=> mouseposition_glfw,
+	inputs[:mouseposition] = mouseposition
+	inputs[:mouseposition_glfw_coordinates] = mouseposition_glfw
 
-		:scroll_x						=> Input(0),
-		:scroll_y						=> Input(0)
-	)
+	inputs[:scroll_x] = Input(0.0)
+	inputs[:scroll_y] = Input(0.0)
+
 	children = Screen[]
 	mouse 	 = filter(Vector2(0.0), mouseposition) do mpos
 		!any(children) do screen 
