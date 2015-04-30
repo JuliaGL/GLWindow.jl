@@ -309,6 +309,20 @@ global const _openglerrorcallback = cfunction(openglerrorcallback, Void,
 										GLsizei, Ptr{GLchar},
 										Ptr{Void}))
 
+
+glfw2gl(mouse, window) = Vector2(mouse[1], window[4] - mouse[2])
+
+GLAbstraction.isinside(screen::Screen, point) = isinside(screen.area.value, point...)
+function isoutside(screens_mpos) 
+	screens, mpos = screens_mpos
+	for screen in screens
+		isinside(screen, mpos) && return false
+	end
+	true
+end
+
+GLAbstraction.Rectangle{T}(val::Vector2{T}) = Rectangle{T}(0, 0, val...)
+	
 function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.SAMPLES, 4)])
 	GLFW.Init()
 	for elem in windowhints
@@ -355,45 +369,43 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
 
 
 	mouseposition_glfw 	= Input(Vector2(0.0))
-	mouseposition 		= lift((mouse, window) -> Vector2(mouse[1], window[4] - mouse[2]), Vector2{Float64}, mouseposition_glfw, window_size)
+	mouseposition 		= lift(glfw2gl, Vector2{Float64}, mouseposition_glfw, window_size)
 
 	
 	inputs = Dict{Symbol, Any}()
-	inputs[:insidewindow] = Input(false)
-	inputs[:open] = Input(true)
-	inputs[:hasfocus] = Input(false)
+	inputs[:insidewindow] 	= Input(false)
+	inputs[:open] 			= Input(true)
+	inputs[:hasfocus] 		= Input(false)
 
-	inputs[:window_size] = window_size
-	inputs[:framebuffer_size] = framebuffers
-	inputs[:windowposition] = Input(Vector2(0))
+	inputs[:window_size] 		= window_size
+	inputs[:framebuffer_size] 	= framebuffers
+	inputs[:windowposition] 	= Input(Vector2(0))
 
-	inputs[:unicodeinput] = Input(Char[])
+	inputs[:unicodeinput] 		= Input(Char[])
 
 	inputs[:buttonspressed] = Input(IntSet())
-	inputs[:buttondown] = Input(0)
+	inputs[:buttondown] 	= Input(0)
 	inputs[:buttonreleased] = Input(0)
 
-	inputs[:mousebuttonspressed] = Input(IntSet())
-	inputs[:mousedown] = Input(0)
-	inputs[:mousereleased] = Input(0)
+	inputs[:mousebuttonspressed] 	= Input(IntSet())
+	inputs[:mousedown] 				= Input(0)
+	inputs[:mousereleased] 			= Input(0)
 
-	inputs[:mouseposition] = mouseposition
+	inputs[:mouseposition] 					= mouseposition
 	inputs[:mouseposition_glfw_coordinates] = mouseposition_glfw
 
 	inputs[:scroll_x] = Input(0.0)
 	inputs[:scroll_y] = Input(0.0)
 
-	children = Screen[]
-	mouse 	 = filter(Vector2(0.0), mouseposition) do mpos
-		!any(children) do screen 
-			isinside(screen.area.value, mpos...)
-		end
-	end
+	children 	 = Screen[]
+	children_mouse = lift(tuple, Input(children), mouseposition)
+	children_mouse = filter(isoutside, Vector2(0.0), children_mouse)
+	mouse 	     = lift(last, children_mouse)
 	camera_input = merge(inputs, Dict(:mouseposition=>mouse))
 	pcamera  	 = PerspectiveCamera(camera_input, Vec3(2), Vec3(0))
 	pocamera     = OrthographicPixelCamera(camera_input)
 
-	screen = Screen(lift(x->Rectangle(0, 0, x...), framebuffers), children, inputs, RenderObject[], Input(false), inputs[:hasfocus], pcamera, pocamera, window)
+	screen = Screen(lift(Rectangle, framebuffers), children, inputs, RenderObject[], Input(false), inputs[:hasfocus], pcamera, pocamera, window)
 	WINDOW_TO_SCREEN_DICT[window] = screen
 	push!(GLFW_SCREEN_STACK, screen)
 
