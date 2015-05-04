@@ -397,13 +397,13 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
 	inputs[:scroll_x] = Input(0.0)
 	inputs[:scroll_y] = Input(0.0)
 
-	children 	 = Screen[]
-	children_mouse = lift(tuple, Input(children), mouseposition)
-	children_mouse = filter(isoutside, Vector2(0.0), children_mouse)
-	mouse 	     = lift(last, children_mouse)
-	camera_input = merge(inputs, Dict(:mouseposition=>mouse))
-	pcamera  	 = PerspectiveCamera(camera_input, Vec3(2), Vec3(0))
-	pocamera     = OrthographicPixelCamera(camera_input)
+	children 	 	= Screen[]
+	children_mouse 	= lift(tuple, Input(children), mouseposition)
+	children_mouse 	= filter(isoutside, Vector2(0.0), children_mouse)
+	mouse 	     	= lift(last, children_mouse)
+	camera_input 	= merge(inputs, Dict(:mouseposition=>mouse))
+	pcamera  	 	= PerspectiveCamera(camera_input, Vec3(2), Vec3(0))
+	pocamera     	= OrthographicPixelCamera(camera_input)
 
 	screen = Screen(lift(Rectangle, framebuffers), children, inputs, RenderObject[], Input(false), inputs[:hasfocus], pcamera, pocamera, window)
 	WINDOW_TO_SCREEN_DICT[window] = screen
