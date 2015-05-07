@@ -117,7 +117,7 @@ function Screen(
 	screen
 end
 function GLAbstraction.isinside(x::Screen, position::Vector2)
-	!any(screen->inside(screen.area.value, position...), x.children) && inside(x.area, position...)
+	!any(screen->isinside(screen.area.value, position...), x.children) && isinside(x.area.value, position...)
 end
 
 function Screen(obj::RenderObject, parent::Screen)
@@ -125,7 +125,7 @@ function Screen(obj::RenderObject, parent::Screen)
 	area 	 = boundingbox2D(obj)
 	hidden   = Input(false)
 	screen 	 = Screen(parent)
-	mouse 	 = filter(inside, Input(Screen), parent.inputs[:mouseposition])
+	mouse 	 = filter(isinside, Input(Screen), parent.inputs[:mouseposition])
 
 	hasfocus = lift(parent.inputs[:mouseposition], parent.inputs[:mousebuttonpressed], screen.area) do pos, buttons, area
 		isinside(area, pos...) && !isempty(bottons)
