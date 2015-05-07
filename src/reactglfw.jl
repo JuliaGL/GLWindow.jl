@@ -369,7 +369,7 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
 
 
 	mouseposition_glfw 	= Input(Vector2(0.0))
-	mouseposition 		= lift(glfw2gl, Vector2{Float64}, mouseposition_glfw, window_size)
+	mouseposition 		= lift(glfw2gl, mouseposition_glfw, window_size)
 
 	
 	inputs = Dict{Symbol, Any}()
