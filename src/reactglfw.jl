@@ -322,7 +322,7 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
 		GLFW.WindowHint(GLFW.OPENGL_PROFILE, GLFW.OPENGL_CORE_PROFILE)
 	end
 	
-	GLFW.WindowHint(GLFW.OPENGL_DEBUG_CONTEXT, @compat(Cint(debugging)))
+	GLFW.WindowHint(GLFW.OPENGL_DEBUG_CONTEXT, convert(Cint, debugging))
 	window = GLFW.CreateWindow(w, h, name)
 	GLFW.MakeContextCurrent(window)
 	GLFW.ShowWindow(window)
