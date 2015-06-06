@@ -270,9 +270,9 @@ function hasfocus(window::Window, focus::Cint)
 end
 function scroll(window::Window, xoffset::Cdouble, yoffset::Cdouble)
 	screen = WINDOW_TO_SCREEN_DICT[window]
-	push!(screen.inputs[:scroll_x], Float64(xoffset))
+	push!(screen.inputs[:scroll_x], Float64(xoffset)) 
 	push!(screen.inputs[:scroll_y], Float64(yoffset))
-	push!(screen.inputs[:scroll_x], Float64(0))
+	push!(screen.inputs[:scroll_x], Float64(0)) # reset to zero
 	push!(screen.inputs[:scroll_y], Float64(0))
 	return nothing
 end
