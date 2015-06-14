@@ -1,7 +1,3 @@
-
-
-
-
 immutable MonitorProperties
 	name::ASCIIString
 	isprimary::Bool
@@ -37,50 +33,53 @@ function Base.show(io::IO, m::MonitorProperties)
 end
 
 type Screen
-    id::Symbol
+    id 		 	::Symbol
     area
-    parent::Screen
-    children::Vector{Screen}
-    inputs::Dict{Symbol, Any}
-    renderlist::Vector{RenderObject}
+    parent 		::Screen
+    children 	::Vector{Screen}
+    inputs 		::Dict{Symbol, Any}
+    renderlist 	::Vector{RenderObject}
 
-    hidden::Signal{Bool}
-    hasfocus::Signal{Bool}
+    hidden 		::Signal{Bool}
+    hasfocus 	::Signal{Bool}
 
-    perspectivecam::PerspectiveCamera
-    orthographiccam::OrthographicCamera
+    cameras 	::Dict{Symbol, Any}
     nativewindow::Window
+
     counter = 1
     function Screen(
     	area,
-	    parent::Screen,
-	    children::Vector{Screen},
-	    inputs::Dict{Symbol, Any},
-	    renderlist::Vector{RenderObject},
+	    parent 		::Screen,
+	    children 	::Vector{Screen},
+	    inputs 		::Dict{Symbol, Any},
+	    renderlist 	::Vector{RenderObject},
 
-	    hidden::Signal{Bool},
-	    hasfocus::Signal{Bool},
-
-	    perspectivecam::PerspectiveCamera,
-	    orthographiccam::OrthographicCamera,
+	    hidden 		::Signal{Bool},
+	    hasfocus 	::Signal{Bool},
+	    cameras 	::Dict{Symbol, Any},
 	    nativewindow::Window)
-        new(symbol("display"*string(counter+=1)), area, parent, children, inputs, renderlist, hidden, hasfocus, perspectivecam, orthographiccam, nativewindow)
+        new(
+        	symbol("display"*string(counter+=1)), 
+        	area, parent, children, inputs, renderlist, 
+        	hidden, hasfocus, cameras, nativewindow)
     end
 
     function Screen(
         area,
-        children::Vector{Screen},
-        inputs::Dict{Symbol, Any},
-        renderlist::Vector{RenderObject},
+        children 	 ::Vector{Screen},
+        inputs 		 ::Dict{Symbol, Any},
+        renderlist 	 ::Vector{RenderObject},
 
-        hidden::Signal{Bool},
-        hasfocus::Signal{Bool},
-
-        perspectivecam::PerspectiveCamera,
-        orthographiccam::OrthographicCamera,
-        nativewindow::Window)
+        hidden  	 ::Signal{Bool},
+        hasfocus 	 ::Signal{Bool},
+        cameras 	 ::Dict{Symbol, Any},
+        nativewindow ::Window)
         parent = new()
-        new(symbol("display"*string(counter+=1)), area, parent, children, inputs, renderlist, hidden, hasfocus, perspectivecam, orthographiccam, nativewindow)
+        new(
+        	symbol("display"*string(counter+=1)), 
+        	area, parent, children, inputs, 
+        	renderlist, hidden, hasfocus, 
+        	cameras, nativewindow)
     end
 end
 
@@ -96,6 +95,8 @@ function Screen(
         hasfocus::Signal{Bool} 			 = parent.hasfocus,
         
         nativewindow::Window 			 = parent.nativewindow)
+
+	area = lift(intersect, lift(x->Rectangle(0,0, x.w, x.h), parent.area), area)
 	#checks if mouse is inside screen
 	insidescreen = lift(inputs[:mouseposition]) do mpos
 		isinside(area.value, mpos...) && !any(children) do screen 
@@ -103,16 +104,20 @@ function Screen(
 		end
 	end
 	# creates signals for the camera, which are only active if mouse is inside screen
-	camera_input = merge(inputs, @compat(Dict(
+	camera_input = merge(inputs, Dict(
 		:mouseposition 	=> keepwhen(insidescreen, Vector2(0.0), inputs[:mouseposition]), 
-		:scroll_x 		=> keepwhen(insidescreen, 0, inputs[:scroll_x]), 
-		:scroll_y 		=> keepwhen(insidescreen, 0, inputs[:scroll_y]), 
+		:scroll_x 		=> keepwhen(insidescreen, 0.0, 			inputs[:scroll_x]), 
+		:scroll_y 		=> keepwhen(insidescreen, 0.0, 			inputs[:scroll_y]), 
 		:window_size 	=> lift(x->Vector4(x.x, x.y, x.w, x.h), area)
-	)))
+	))
 	# creates cameras for the sceen with the new inputs
 	ocamera      = OrthographicPixelCamera(camera_input)
 	pcamera  	 = PerspectiveCamera(camera_input, Vec3(2), Vec3(0))
-    screen = Screen(area, parent, children, inputs, renderlist, hidden, hasfocus, pcamera, ocamera, nativewindow)
+    screen = Screen(
+    	area, parent, children, inputs, 
+    	renderlist, hidden, hasfocus, 
+    	Dict(:perspective=>pcamera, :orthographic_pixel=>ocamera),
+    	nativewindow)
 	push!(parent.children, screen)
 	screen
 end
@@ -120,50 +125,31 @@ function GLAbstraction.isinside(x::Screen, position::Vector2)
 	!any(screen->isinside(screen.area.value, position...), x.children) && isinside(x.area.value, position...)
 end
 
-function Screen(obj::RenderObject, parent::Screen)
 
-	area 	 = boundingbox2D(obj)
-	hidden   = Input(false)
-	screen 	 = Screen(parent)
-	mouse 	 = filter(isinside, Input(Screen), parent.inputs[:mouseposition])
 
-	hasfocus = lift(parent.inputs[:mouseposition], parent.inputs[:mousebuttonpressed], screen.area) do pos, buttons, area
-		isinside(area, pos...) && !isempty(bottons)
+function Base.intersect{T}(a::Rectangle{T}, b::Rectangle{T})
+	x,y, xw, yh = b.x, b.y, xwidth(b), yheight(b)
+	if isinside(a, x,y) || isinside(a, xw, yh)
+		x,y = max(a.x, x), max(a.y, y)
+		return Rectangle{T}(
+			x,y,
+			min(xwidth(a), xw)-x,
+			min(yheight(a), yh)-y,
+		)
 	end
-	buttons  = menubar(screen)
-	push!(parent.children, screen)
-	push!(screen.renderlist, buttons)
-	push!(screen.renderlist, obj)
+	return Rectangle{T}(zero(T), zero(T), zero(T), zero(T))
 end
 
-function Screen(style::Style{:Default}, parent=first(SCREEN_STACK))
 
-	hidden   	= Input(true)
-	screen 	 	= Screen(parent)
-	mouse 	 	= filter(Input(Screen), parent.inputs[:mouseposition]) do screen, mpos
-	end
-	inputs 		= merge(parent.inputs, @compat(Dict(:mouseposition=>mouse)))
-	opxcamera   = OrthographicPixelCamera(inputs)
-	pcamera  	= PerspectiveCamera(inputs)
-	hasfocus 	= lift(parent.inputs[:mouseposition], parent.inputs[:mousebuttonpressed], screen.area) do pos, buttons, area
-		isinside(area, pos...) && !isempty(bottons)
-	end
-	screen 		= Screen(area, parent, children=Screen[], inputs, renderList, hidden, hasfocus, perspectivecam, orthographiccam)
-	buttons     = menubar(screen, style)
-
-	push!(parent.children, screen)
-	push!(screen.renderlist, buttons)
-
-end
-
-dict = Dict{Symbol, Vec4}()
 function GLAbstraction.render(x::Screen)
- 	glEnable(GL_SCISSOR_TEST)
-    glScissor(x.area.value.x, x.area.value.y, x.area.value.w, x.area.value.h)
-    glViewport(x.area.value)
-
-    render(x.renderlist)
-    render(x.children)
+	sa 	 = x.area.value
+	if sa != Rectangle{Int}(0,0,0,0)
+ 		glEnable(GL_SCISSOR_TEST)
+    	glScissor(sa)
+    	glViewport(sa)
+    	render(x.renderlist)
+    	for screen in x.children; render(screen); end
+    end
 end
 function Base.show(io::IO, m::Screen)
 	println(io, "name: ", m.id)
@@ -216,7 +202,7 @@ end
 
 function key_pressed(window::Window, button::Cint, scancode::Cint, action::Cint, mods::Cint)
 	screen = WINDOW_TO_SCREEN_DICT[window]
-	if sign(button) == 1
+	if button != GLFW.KEY_UNKNOWN
 		buttonspressed 	= screen.inputs[:buttonspressed]
 		keyset 			= buttonspressed.value
 		buttonI 		= Int(button)
@@ -229,6 +215,9 @@ function key_pressed(window::Window, button::Cint, scancode::Cint, action::Cint,
 			buttonreleased 	= screen.inputs[:buttonreleased]
 			push!(buttonreleased, buttonI)
 			setdiff!(keyset, Set(buttonI))
+			push!(buttonspressed, keyset)
+		elseif action == GLFW.REPEAT
+			push!(keyset, buttonI)
 			push!(buttonspressed, keyset)
 		end
 	end
@@ -346,7 +335,6 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
 	if debugging
 		glDebugMessageCallbackARB(_openglerrorcallback, C_NULL)
 	end
-
 	GLFW.SetWindowCloseCallback(window, window_closed)
 	GLFW.SetWindowSizeCallback(window, window_resized)
 	GLFW.SetWindowPosCallback(window, window_position)
@@ -358,7 +346,6 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
 	GLFW.SetCursorEnterCallback(window, entered_window)
 	GLFW.SetFramebufferSizeCallback(window, framebuffer_size)
 	GLFW.SetWindowFocusCallback(window, hasfocus)
-
 	GLFW.SetWindowSize(window, w, h) # Seems to be necessary to guarantee that window > 0
 
 	width, height 		= GLFW.GetWindowSize(window)
@@ -405,7 +392,12 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
 	pcamera  	 	= PerspectiveCamera(camera_input, Vec3(2), Vec3(0))
 	pocamera     	= OrthographicPixelCamera(camera_input)
 
-	screen = Screen(lift(Rectangle, framebuffers), children, inputs, RenderObject[], Input(false), inputs[:hasfocus], pcamera, pocamera, window)
+	screen = Screen(
+		lift(Rectangle, framebuffers), children, inputs, 
+		RenderObject[], Input(false), inputs[:hasfocus], 
+		Dict(:perspective=>pcamera, :orthographic_pixel=>pocamera), 
+		window
+	)
 	WINDOW_TO_SCREEN_DICT[window] = screen
 	push!(GLFW_SCREEN_STACK, screen)
 
