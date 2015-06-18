@@ -94,7 +94,9 @@ function Screen(
         hidden::Signal{Bool}   			 = parent.hidden,
         hasfocus::Signal{Bool} 			 = parent.hasfocus,
         
-        nativewindow::Window 			 = parent.nativewindow)
+        nativewindow::Window 			 = parent.nativewindow,
+        position 					     = Vec3(2),
+        lookat 					     	 = Vec3(0),)
 
 	#checks if mouse is inside screen and not inside any children
 	relative_mousepos = lift(inputs[:mouseposition]) do mpos
@@ -121,7 +123,7 @@ function Screen(
 	))
 	# creates cameras for the sceen with the new inputs
 	ocamera = OrthographicPixelCamera(camera_input)
-	pcamera = PerspectiveCamera(camera_input, Vec3(2), Vec3(0))
+	pcamera = PerspectiveCamera(camera_input, position, lookat)
     screen = Screen(
     	area, parent, children, new_input, 
     	renderlist, hidden, hasfocus, 
@@ -283,7 +285,12 @@ function entered_window(window::Window, entered::Cint)
 	return nothing
 end
 
-
+function dropped_files(window::Window, count::Cint, files::Ptr{Ptr{UInt8}})
+	files = pointer_to_array(files, count)
+	files = map(utf8, files)
+	update(window, :droppedfiles, files, keepsimilar = true)
+	return nothing
+end
 function openglerrorcallback(
 				source::GLenum, typ::GLenum,
 				id::GLuint, severity::GLenum,
@@ -360,7 +367,8 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
 	GLFW.SetFramebufferSizeCallback(window, framebuffer_size)
 	GLFW.SetWindowFocusCallback(window, hasfocus)
 	GLFW.SetWindowSize(window, w, h) # Seems to be necessary to guarantee that window > 0
-
+	GLFW.SetDropCallback(window, dropped_files)
+	
 	width, height 		= GLFW.GetWindowSize(window)
 	fwidth, fheight 	= GLFW.GetFramebufferSize(window)
 	framebuffers 		= Input(Vector2{Int}(fwidth, fheight))
@@ -396,6 +404,8 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
 
 	inputs[:scroll_x] = Input(0.0)
 	inputs[:scroll_y] = Input(0.0)
+
+	inputs[:droppedfiles] = Input(UTF8String[])
 
 	children 	 	= Screen[]
 	children_mouse 	= lift(tuple, Input(children), mouseposition)
