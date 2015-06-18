@@ -96,25 +96,34 @@ function Screen(
         
         nativewindow::Window 			 = parent.nativewindow)
 
-	area = lift(intersect, lift(x->Rectangle(0,0, x.w, x.h), parent.area), area)
-	#checks if mouse is inside screen
-	insidescreen = lift(inputs[:mouseposition]) do mpos
-		isinside(area.value, mpos...) && !any(children) do screen 
+	#checks if mouse is inside screen and not inside any children
+	relative_mousepos = lift(inputs[:mouseposition]) do mpos
+		Point2(mpos.x-area.value.x, mpos.y-area.value.y)
+	end
+	insidescreen = lift(relative_mousepos) do mpos
+		mpos.x>=0 && mpos.y>=0 && mpos.x <= area.value.w && mpos.y <= area.value.h && !any(children) do screen 
 			isinside(screen.area.value, mpos...)
 		end
 	end
 	# creates signals for the camera, which are only active if mouse is inside screen
 	camera_input = merge(inputs, Dict(
-		:mouseposition 	=> keepwhen(insidescreen, Vector2(0.0), inputs[:mouseposition]), 
+		:mouseposition 	=> keepwhen(insidescreen, Vector2(0.0), relative_mousepos), 
 		:scroll_x 		=> keepwhen(insidescreen, 0.0, 			inputs[:scroll_x]), 
 		:scroll_y 		=> keepwhen(insidescreen, 0.0, 			inputs[:scroll_y]), 
 		:window_size 	=> lift(x->Vector4(x.x, x.y, x.w, x.h), area)
 	))
+	new_input = merge(inputs, Dict(
+		:mouseinside 	=> insidescreen,
+		:mouseposition 	=> relative_mousepos, 
+		:scroll_x 		=> inputs[:scroll_x], 
+		:scroll_y 		=> inputs[:scroll_y], 
+		:window_size 	=> lift(x->Vector4(x.x, x.y, x.w, x.h), area)
+	))
 	# creates cameras for the sceen with the new inputs
-	ocamera      = OrthographicPixelCamera(camera_input)
-	pcamera  	 = PerspectiveCamera(camera_input, Vec3(2), Vec3(0))
+	ocamera = OrthographicPixelCamera(camera_input)
+	pcamera = PerspectiveCamera(camera_input, Vec3(2), Vec3(0))
     screen = Screen(
-    	area, parent, children, inputs, 
+    	area, parent, children, new_input, 
     	renderlist, hidden, hasfocus, 
     	Dict(:perspective=>pcamera, :orthographic_pixel=>ocamera),
     	nativewindow)
@@ -128,27 +137,31 @@ end
 
 
 function Base.intersect{T}(a::Rectangle{T}, b::Rectangle{T})
-	x,y, xw, yh = b.x, b.y, xwidth(b), yheight(b)
-	if isinside(a, x,y) || isinside(a, xw, yh)
-		x,y = max(a.x, x), max(a.y, y)
-		return Rectangle{T}(
-			x,y,
-			min(xwidth(a), xw)-x,
-			min(yheight(a), yh)-y,
-		)
-	end
-	return Rectangle{T}(zero(T), zero(T), zero(T), zero(T))
+	axrange = a.x:xwidth(a)
+	ayrange = a.y:yheight(a)
+
+	bxrange = b.x:xwidth(b)
+	byrange = b.y:yheight(b)
+
+	xintersect = intersect(axrange, bxrange)
+	yintersect = intersect(ayrange, byrange)
+	(isempty(xintersect) || isempty(yintersect) ) && return Rectangle(zero(T), zero(T), zero(T), zero(T))
+	x,y 	= first(xintersect), first(yintersect)
+	xw,yh 	= last(xintersect), last(yintersect)
+	Rectangle(x,y, xw-x,yh-y)
 end
 
-
-function GLAbstraction.render(x::Screen)
-	sa 	 = x.area.value
-	if sa != Rectangle{Int}(0,0,0,0)
+function GLAbstraction.render(x::Screen, parent::Screen=x, context=x.area.value)
+	sa 	 	= x.area.value
+	sa 		= Rectangle(context.x+sa.x, context.y+sa.y, sa.w, sa.h) # bring back to absolute values
+	pa 	 	= context
+	sa_pa 	= intersect(pa, sa)
+	if sa_pa != Rectangle{Int}(0,0,0,0)
  		glEnable(GL_SCISSOR_TEST)
-    	glScissor(sa)
+    	glScissor(sa_pa)
     	glViewport(sa)
     	render(x.renderlist)
-    	for screen in x.children; render(screen); end
+    	for screen in x.children; render(screen, x, sa); end
     end
 end
 function Base.show(io::IO, m::Screen)
