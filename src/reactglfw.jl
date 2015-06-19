@@ -31,7 +31,8 @@ function Base.show(io::IO, m::MonitorProperties)
 	println(io, "resolution: ", m.videomode.width, "x", m.videomode.height)
 	println(io, "dpi: ", m.dpi[1], "x", m.dpi[2])
 end
-
+zeroposition{T}(r::Rectangle{T}) = Rectangle(zero(T), zero(T), r.w, r.h)
+export zeroposition
 type Screen
     id 		 	::Symbol
     area
@@ -102,8 +103,9 @@ function Screen(
 	relative_mousepos = lift(inputs[:mouseposition]) do mpos
 		Point2(mpos.x-area.value.x, mpos.y-area.value.y)
 	end
+	pintersect = lift(intersect, lift(zeroposition, parent.area), area)
 	insidescreen = lift(relative_mousepos) do mpos
-		mpos.x>=0 && mpos.y>=0 && mpos.x <= area.value.w && mpos.y <= area.value.h && !any(children) do screen 
+		mpos.x>=0 && mpos.y>=0 && mpos.x <= pintersect.value.w && mpos.y <= pintersect.value.h && !any(children) do screen 
 			isinside(screen.area.value, mpos...)
 		end
 	end
