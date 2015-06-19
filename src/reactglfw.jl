@@ -98,12 +98,12 @@ function Screen(
         nativewindow::Window 			 = parent.nativewindow,
         position 					     = Vec3(2),
         lookat 					     	 = Vec3(0),)
+	pintersect = lift(intersect, lift(zeroposition, parent.area), area)
 
 	#checks if mouse is inside screen and not inside any children
 	relative_mousepos = lift(inputs[:mouseposition]) do mpos
-		Point2(mpos.x-area.value.x, mpos.y-area.value.y)
+		Point2(mpos.x-pintersect.value.x, mpos.y-pintersect.value.y)
 	end
-	pintersect = lift(intersect, lift(zeroposition, parent.area), area)
 	insidescreen = lift(relative_mousepos) do mpos
 		mpos.x>=0 && mpos.y>=0 && mpos.x <= pintersect.value.w && mpos.y <= pintersect.value.h && !any(children) do screen 
 			isinside(screen.area.value, mpos...)
