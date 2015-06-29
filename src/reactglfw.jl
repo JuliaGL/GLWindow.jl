@@ -156,17 +156,20 @@ function Base.intersect{T}(a::Rectangle{T}, b::Rectangle{T})
 end
 
 function GLAbstraction.render(x::Screen, parent::Screen=x, context=x.area.value)
-	sa 	 	= x.area.value
-	sa 		= Rectangle(context.x+sa.x, context.y+sa.y, sa.w, sa.h) # bring back to absolute values
-	pa 	 	= context
-	sa_pa 	= intersect(pa, sa)
-	if sa_pa != Rectangle{Int}(0,0,0,0)
- 		glEnable(GL_SCISSOR_TEST)
-    	glScissor(sa_pa)
-    	glViewport(sa)
-    	render(x.renderlist)
-    	for screen in x.children; render(screen, x, sa); end
-    end
+	if x.inputs[:open].value
+		sa 	 	= x.area.value
+		sa 		= Rectangle(context.x+sa.x, context.y+sa.y, sa.w, sa.h) # bring back to absolute values
+		pa 	 	= context
+		sa_pa 	= intersect(pa, sa)
+		if sa_pa != Rectangle{Int}(0,0,0,0)
+	 		glEnable(GL_SCISSOR_TEST)
+	    	glScissor(sa_pa)
+	    	glViewport(sa)
+	    	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+	    	render(x.renderlist)
+	    	for screen in x.children; render(screen, x, sa); end
+	    end
+	end
 end
 function Base.show(io::IO, m::Screen)
 	println(io, "name: ", m.id)
