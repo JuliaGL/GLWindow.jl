@@ -342,7 +342,7 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
 	for elem in windowhints
 		GLFW.WindowHint(elem...)
 	end
-	@osx_only begin
+	@unix_only begin
 		if debugging
 			println("warning: OpenGL debug message callback not available on osx")
 			debugging = false
