@@ -33,6 +33,9 @@ function Base.show(io::IO, m::MonitorProperties)
 end
 zeroposition{T}(r::Rectangle{T}) = Rectangle(zero(T), zero(T), r.w, r.h)
 export zeroposition
+
+counter = 1
+
 type Screen
     id 		 	::Symbol
     area
@@ -47,7 +50,6 @@ type Screen
     cameras 	::Dict{Symbol, Any}
     nativewindow::Window
 
-    counter = 1
     function Screen(
     	area,
 	    parent 		::Screen,
@@ -59,9 +61,12 @@ type Screen
 	    hasfocus 	::Signal{Bool},
 	    cameras 	::Dict{Symbol, Any},
 	    nativewindow::Window)
+
+        global counter
+
         new(
-        	symbol("display"*string(counter+=1)), 
-        	area, parent, children, inputs, renderlist, 
+        	symbol("display"*string(counter+=1)),
+        	area, parent, children, inputs, renderlist,
         	hidden, hasfocus, cameras, nativewindow)
     end
 
@@ -76,10 +81,13 @@ type Screen
         cameras 	 ::Dict{Symbol, Any},
         nativewindow ::Window)
         parent = new()
+
+        global counter
+
         new(
-        	symbol("display"*string(counter+=1)), 
-        	area, parent, children, inputs, 
-        	renderlist, hidden, hasfocus, 
+        	symbol("display"*string(counter+=1)),
+        	area, parent, children, inputs,
+        	renderlist, hidden, hasfocus,
         	cameras, nativewindow)
     end
 end
@@ -94,7 +102,7 @@ function Screen(
 
         hidden::Signal{Bool}   			 = parent.hidden,
         hasfocus::Signal{Bool} 			 = parent.hasfocus,
-        
+
         nativewindow::Window 			 = parent.nativewindow,
         position 					     = Vec3(2),
         lookat 					     	 = Vec3(0),)
@@ -105,30 +113,30 @@ function Screen(
 		Point2(mpos.x-pintersect.value.x, mpos.y-pintersect.value.y)
 	end
 	insidescreen = lift(relative_mousepos) do mpos
-		mpos.x>=0 && mpos.y>=0 && mpos.x <= pintersect.value.w && mpos.y <= pintersect.value.h && !any(children) do screen 
+		mpos.x>=0 && mpos.y>=0 && mpos.x <= pintersect.value.w && mpos.y <= pintersect.value.h && !any(children) do screen
 			isinside(screen.area.value, mpos...)
 		end
 	end
 	# creates signals for the camera, which are only active if mouse is inside screen
 	camera_input = merge(inputs, Dict(
-		:mouseposition 	=> keepwhen(insidescreen, Vector2(0.0), relative_mousepos), 
-		:scroll_x 		=> keepwhen(insidescreen, 0.0, 			inputs[:scroll_x]), 
-		:scroll_y 		=> keepwhen(insidescreen, 0.0, 			inputs[:scroll_y]), 
+		:mouseposition 	=> keepwhen(insidescreen, Vector2(0.0), relative_mousepos),
+		:scroll_x 		=> keepwhen(insidescreen, 0.0, 			inputs[:scroll_x]),
+		:scroll_y 		=> keepwhen(insidescreen, 0.0, 			inputs[:scroll_y]),
 		:window_size 	=> lift(x->Vector4(x.x, x.y, x.w, x.h), area)
 	))
 	new_input = merge(inputs, Dict(
 		:mouseinside 	=> insidescreen,
-		:mouseposition 	=> relative_mousepos, 
-		:scroll_x 		=> inputs[:scroll_x], 
-		:scroll_y 		=> inputs[:scroll_y], 
+		:mouseposition 	=> relative_mousepos,
+		:scroll_x 		=> inputs[:scroll_x],
+		:scroll_y 		=> inputs[:scroll_y],
 		:window_size 	=> lift(x->Vector4(x.x, x.y, x.w, x.h), area)
 	))
 	# creates cameras for the sceen with the new inputs
 	ocamera = OrthographicPixelCamera(camera_input)
 	pcamera = PerspectiveCamera(camera_input, position, lookat)
     screen = Screen(
-    	area, parent, children, new_input, 
-    	renderlist, hidden, hasfocus, 
+    	area, parent, children, new_input,
+    	renderlist, hidden, hasfocus,
     	Dict(:perspective=>pcamera, :orthographic_pixel=>ocamera),
     	nativewindow)
 	push!(parent.children, screen)
@@ -226,12 +234,12 @@ function key_pressed(window::Window, button::Cint, scancode::Cint, action::Cint,
 		buttonspressed 	= screen.inputs[:buttonspressed]
 		keyset 			= buttonspressed.value
 		buttonI 		= Int(button)
-		if action == GLFW.PRESS  
+		if action == GLFW.PRESS
 			buttondown 	= screen.inputs[:buttondown]
 			push!(buttondown, buttonI)
 			push!(keyset, buttonI)
 			push!(buttonspressed, keyset)
-		elseif action == GLFW.RELEASE 
+		elseif action == GLFW.RELEASE
 			buttonreleased 	= screen.inputs[:buttonreleased]
 			push!(buttonreleased, buttonI)
 			setdiff!(keyset, Set(buttonI))
@@ -245,16 +253,16 @@ function key_pressed(window::Window, button::Cint, scancode::Cint, action::Cint,
 end
 function mouse_clicked(window::Window, button::Cint, action::Cint, mods::Cint)
 	screen = WINDOW_TO_SCREEN_DICT[window]
-	
+
 	buttonspressed 	= screen.inputs[:mousebuttonspressed]
 	keyset 			= buttonspressed.value
 	buttonI 		= Int(button)
-	if action == GLFW.PRESS  
+	if action == GLFW.PRESS
 		buttondown 	= screen.inputs[:mousedown]
 		push!(buttondown, buttonI)
 		push!(keyset, buttonI)
 		push!(buttonspressed, keyset)
-	elseif action == GLFW.RELEASE 
+	elseif action == GLFW.RELEASE
 		buttonreleased 	= screen.inputs[:mousereleased]
 		push!(buttonreleased, buttonI)
 		setdiff!(keyset, Set(buttonI))
@@ -279,7 +287,7 @@ function hasfocus(window::Window, focus::Cint)
 end
 function scroll(window::Window, xoffset::Cdouble, yoffset::Cdouble)
 	screen = WINDOW_TO_SCREEN_DICT[window]
-	push!(screen.inputs[:scroll_x], Float64(xoffset)) 
+	push!(screen.inputs[:scroll_x], Float64(xoffset))
 	push!(screen.inputs[:scroll_y], Float64(yoffset))
 	push!(screen.inputs[:scroll_x], Float64(0)) # reset to zero
 	push!(screen.inputs[:scroll_y], Float64(0))
@@ -303,7 +311,7 @@ function openglerrorcallback(
 				userParam::Ptr{Void}
 			)
 	errormessage = 	"\n"*
-					" ________________________________________________________________\n"* 
+					" ________________________________________________________________\n"*
 					"|\n"*
 					"| OpenGL Error!\n"*
 					"| source: $(GLENUM(source).name) :: type: $(GLENUM(typ).name)\n"*
@@ -327,7 +335,7 @@ global const _openglerrorcallback = cfunction(openglerrorcallback, Void,
 glfw2gl(mouse, window) = Vector2(mouse[1], window[4] - mouse[2])
 
 GLAbstraction.isinside(screen::Screen, point) = isinside(screen.area.value, point...)
-function isoutside(screens_mpos) 
+function isoutside(screens_mpos)
 	screens, mpos = screens_mpos
 	for screen in screens
 		isinside(screen, mpos) && return false
@@ -336,7 +344,7 @@ function isoutside(screens_mpos)
 end
 
 GLAbstraction.Rectangle{T}(val::Vector2{T}) = Rectangle{T}(0, 0, val...)
-	
+
 function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.SAMPLES, 4)])
 	GLFW.Init()
 	for elem in windowhints
@@ -352,7 +360,7 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
 		GLFW.WindowHint(GLFW.OPENGL_FORWARD_COMPAT, GL_TRUE)
 		GLFW.WindowHint(GLFW.OPENGL_PROFILE, GLFW.OPENGL_CORE_PROFILE)
 	end
-	
+
 	GLFW.WindowHint(GLFW.OPENGL_DEBUG_CONTEXT, Cint(debugging))
 	window = GLFW.CreateWindow(w, h, name)
 	GLFW.MakeContextCurrent(window)
@@ -373,7 +381,7 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
 	GLFW.SetWindowFocusCallback(window, hasfocus)
 	GLFW.SetWindowSize(window, w, h) # Seems to be necessary to guarantee that window > 0
 	GLFW.SetDropCallback(window, dropped_files)
-	
+
 	width, height 		= GLFW.GetWindowSize(window)
 	fwidth, fheight 	= GLFW.GetFramebufferSize(window)
 	framebuffers 		= Input(Vector2{Int}(fwidth, fheight))
@@ -384,7 +392,7 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
 	mouseposition_glfw 	= Input(Vector2(0.0))
 	mouseposition 		= lift(glfw2gl, mouseposition_glfw, window_size)
 
-	
+
 	inputs = Dict{Symbol, Any}()
 	inputs[:insidewindow] 	= Input(false)
 	inputs[:open] 			= Input(true)
@@ -421,9 +429,9 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
 	pocamera     	= OrthographicPixelCamera(camera_input)
 
 	screen = Screen(
-		lift(Rectangle, framebuffers), children, inputs, 
-		RenderObject[], Input(false), inputs[:hasfocus], 
-		Dict(:perspective=>pcamera, :orthographic_pixel=>pocamera), 
+		lift(Rectangle, framebuffers), children, inputs,
+		RenderObject[], Input(false), inputs[:hasfocus],
+		Dict(:perspective=>pcamera, :orthographic_pixel=>pocamera),
 		window
 	)
 	WINDOW_TO_SCREEN_DICT[window] = screen
