@@ -344,6 +344,7 @@ function isoutside(screens_mpos)
 end
 
 GLAbstraction.Rectangle{T}(val::Vector2{T}) = Rectangle{T}(0, 0, val...)
+scaling_factor(window, fb) = Vector2{Float64}(window[3], window[4]) ./ Vector2{Float64}(fb)
 
 function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.SAMPLES, 4)])
 	GLFW.Init()
@@ -392,6 +393,9 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
 	mouseposition_glfw 	= Input(Vector2(0.0))
 	mouseposition 		= lift(glfw2gl, mouseposition_glfw, window_size)
 
+	window_scale_factor = lift(scaling_factor, window_size, framebuffers)
+
+	mouseposition 		= lift(.*, mouseposition, window_scale_factor)
 
 	inputs = Dict{Symbol, Any}()
 	inputs[:insidewindow] 	= Input(false)
