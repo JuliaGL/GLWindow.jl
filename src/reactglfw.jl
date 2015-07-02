@@ -344,7 +344,7 @@ function isoutside(screens_mpos)
 end
 
 GLAbstraction.Rectangle{T}(val::Vector2{T}) = Rectangle{T}(0, 0, val...)
-scaling_factor(window, fb) = Vector2{Float64}(window[3], window[4]) ./ Vector2{Float64}(fb)
+scaling_factor(window, fb) = Vector2{Float64}(fb) ./ Vector2{Float64}(window[3], window[4])
 
 function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.SAMPLES, 4)])
 	GLFW.Init()
