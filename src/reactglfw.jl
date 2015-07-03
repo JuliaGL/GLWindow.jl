@@ -34,7 +34,7 @@ end
 zeroposition{T}(r::Rectangle{T}) = Rectangle(zero(T), zero(T), r.w, r.h)
 export zeroposition
 
-counter = 1
+SCREEN_ID_COUNTER = 1
 
 type Screen
     id 		 	::Symbol
@@ -62,10 +62,10 @@ type Screen
 	    cameras 	::Dict{Symbol, Any},
 	    nativewindow::Window)
 
-        global counter
+        global SCREEN_ID_COUNTER
 
         new(
-        	symbol("display"*string(counter+=1)),
+        	symbol("display"*string(SCREEN_ID_COUNTER+=1)),
         	area, parent, children, inputs, renderlist,
         	hidden, hasfocus, cameras, nativewindow)
     end
@@ -82,10 +82,10 @@ type Screen
         nativewindow ::Window)
         parent = new()
 
-        global counter
+        global SCREEN_ID_COUNTER
 
         new(
-        	symbol("display"*string(counter+=1)),
+        	symbol("display"*string(SCREEN_ID_COUNTER+=1)),
         	area, parent, children, inputs,
         	renderlist, hidden, hasfocus,
         	cameras, nativewindow)
