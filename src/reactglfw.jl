@@ -38,7 +38,7 @@ SCREEN_ID_COUNTER = 1
 
 type Screen
     id 		 	::Symbol
-    area
+    area 		::Signal{Rectangle{Int}}
     parent 		::Screen
     children 	::Vector{Screen}
     inputs 		::Dict{Symbol, Any}
@@ -105,7 +105,8 @@ function Screen(
 
         nativewindow::Window 			 = parent.nativewindow,
         position 					     = Vec3(2),
-        lookat 					     	 = Vec3(0),)
+        lookat 					     	 = Vec3(0))
+
 	pintersect = lift(intersect, lift(zeroposition, parent.area), area)
 
 	#checks if mouse is inside screen and not inside any children
@@ -122,19 +123,19 @@ function Screen(
 		:mouseposition 	=> keepwhen(insidescreen, Vector2(0.0), relative_mousepos),
 		:scroll_x 		=> keepwhen(insidescreen, 0.0, 			inputs[:scroll_x]),
 		:scroll_y 		=> keepwhen(insidescreen, 0.0, 			inputs[:scroll_y]),
-		:window_size 	=> lift(x->Vector4(x.x, x.y, x.w, x.h), area)
+		:window_size 	=> area
 	))
 	new_input = merge(inputs, Dict(
 		:mouseinside 	=> insidescreen,
 		:mouseposition 	=> relative_mousepos,
 		:scroll_x 		=> inputs[:scroll_x],
 		:scroll_y 		=> inputs[:scroll_y],
-		:window_size 	=> lift(x->Vector4(x.x, x.y, x.w, x.h), area)
+		:window_size 	=> area
 	))
 	# creates cameras for the sceen with the new inputs
 	ocamera = OrthographicPixelCamera(camera_input)
 	pcamera = PerspectiveCamera(camera_input, position, lookat)
-    screen = Screen(
+    screen  = Screen(
     	area, parent, children, new_input,
     	renderlist, hidden, hasfocus,
     	Dict(:perspective=>pcamera, :orthographic_pixel=>ocamera),
@@ -160,7 +161,7 @@ function Base.intersect{T}(a::Rectangle{T}, b::Rectangle{T})
 	(isempty(xintersect) || isempty(yintersect) ) && return Rectangle(zero(T), zero(T), zero(T), zero(T))
 	x,y 	= first(xintersect), first(yintersect)
 	xw,yh 	= last(xintersect), last(yintersect)
-	Rectangle(x,y, xw-x,yh-y)
+	Rectangle(x,y, xw-x, yh-y)
 end
 
 function GLAbstraction.render(x::Screen, parent::Screen=x, context=x.area.value)
@@ -214,7 +215,7 @@ function window_closed(window)
 end
 
 function window_resized(window, w::Cint, h::Cint)
-	update(window, :window_size, Vector4(0, 0, Int(w), Int(h)))
+	update(window, :_window_size, Rectangle(0, 0, Int(w), Int(h)))
     return nothing
 end
 function framebuffer_size(window, w::Cint, h::Cint)
@@ -259,21 +260,21 @@ function mouse_clicked(window::Window, button::Cint, action::Cint, mods::Cint)
 	buttonI 		= Int(button)
 	if action == GLFW.PRESS
 		buttondown 	= screen.inputs[:mousedown]
-		push!(buttondown, buttonI)
-		push!(keyset, buttonI)
-		push!(buttonspressed, keyset)
+		push!(buttondown, 		buttonI)
+		push!(keyset, 			buttonI)
+		push!(buttonspressed, 	keyset)
 	elseif action == GLFW.RELEASE
 		buttonreleased 	= screen.inputs[:mousereleased]
-		push!(buttonreleased, buttonI)
-		setdiff!(keyset, Set(buttonI))
-		push!(buttonspressed, keyset)
+		push!(buttonreleased, 	buttonI)
+		setdiff!(keyset,		Set(buttonI))
+		push!(buttonspressed, 	keyset)
 	end
 	return nothing
 end
 
 function unicode_input(window::Window, c::Cuint)
 	update(window, :unicodeinput, [Char(c)], keepsimilar = true)
-	update(window, :unicodeinput, Char[], keepsimilar = true)
+	update(window, :unicodeinput, Char[], 	 keepsimilar = true)
 	return nothing
 end
 
@@ -332,7 +333,7 @@ global const _openglerrorcallback = cfunction(openglerrorcallback, Void,
 										Ptr{Void}))
 
 
-glfw2gl(mouse, window) = Vector2(mouse[1], window[4] - mouse[2])
+glfw2gl(mouse, window) = Vector2(mouse.x, window.h - mouse.y)
 
 GLAbstraction.isinside(screen::Screen, point) = isinside(screen.area.value, point...)
 function isoutside(screens_mpos)
@@ -343,24 +344,30 @@ function isoutside(screens_mpos)
 	true
 end
 
-GLAbstraction.Rectangle{T}(val::Vector2{T}) = Rectangle{T}(0, 0, val...)
-scaling_factor(window, fb) = Vector2{Float64}(fb) ./ Vector2{Float64}(window[3], window[4])
+GeometryTypes.Rectangle{T}(val::Vector2{T}) = Rectangle{T}(0, 0, val...)
+function scaling_factor(window, fb)
+	(window.w == 0.0 || window.h == 0.0) && return Vector2(1.0)
+	Vector2{Float64}(fb) ./ Vector2{Float64}(window.w, window.h)
+end
+
+
 
 function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.SAMPLES, 4)])
 	GLFW.Init()
 	for elem in windowhints
 		GLFW.WindowHint(elem...)
 	end
-	@unix_only begin
+	@osx_only begin
 		if debugging
 			println("warning: OpenGL debug message callback not available on osx")
 			debugging = false
 		end
-		GLFW.WindowHint(GLFW.CONTEXT_VERSION_MAJOR, 3)
-		GLFW.WindowHint(GLFW.CONTEXT_VERSION_MINOR, 2)
-		GLFW.WindowHint(GLFW.OPENGL_FORWARD_COMPAT, GL_TRUE)
-		GLFW.WindowHint(GLFW.OPENGL_PROFILE, GLFW.OPENGL_CORE_PROFILE)
 	end
+	
+	GLFW.WindowHint(GLFW.CONTEXT_VERSION_MAJOR, 3)
+	GLFW.WindowHint(GLFW.CONTEXT_VERSION_MINOR, 3)
+	GLFW.WindowHint(GLFW.OPENGL_FORWARD_COMPAT, GL_TRUE)
+	GLFW.WindowHint(GLFW.OPENGL_PROFILE, GLFW.OPENGL_CORE_PROFILE)
 
 	GLFW.WindowHint(GLFW.OPENGL_DEBUG_CONTEXT, Cint(debugging))
 	window = GLFW.CreateWindow(w, h, name)
@@ -386,7 +393,7 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
 	width, height 		= GLFW.GetWindowSize(window)
 	fwidth, fheight 	= GLFW.GetFramebufferSize(window)
 	framebuffers 		= Input(Vector2{Int}(fwidth, fheight))
-	window_size 		= Input(Vector4{Int}(0, 0, width, height))
+	window_size 		= Input(Rectangle{Int}(0, 0, width, height))
 	glViewport(0, 0, fwidth, fheight)
 
 
@@ -398,19 +405,20 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
 	mouseposition 		= lift(.*, mouseposition, window_scale_factor)
 
 	inputs = Dict{Symbol, Any}()
-	inputs[:insidewindow] 	= Input(false)
-	inputs[:open] 			= Input(true)
-	inputs[:hasfocus] 		= Input(false)
+	inputs[:insidewindow] 			= Input(false)
+	inputs[:open] 					= Input(true)
+	inputs[:hasfocus] 				= Input(false)
 
-	inputs[:window_size] 		= window_size
-	inputs[:framebuffer_size] 	= framebuffers
-	inputs[:windowposition] 	= Input(Vector2(0))
+	inputs[:_window_size] 			= window_size # to get 
+	inputs[:window_size] 			= lift(Rectangle, framebuffers) # to get 
+	inputs[:framebuffer_size] 		= framebuffers
+	inputs[:windowposition] 		= Input(Vector2(0))
 
-	inputs[:unicodeinput] 		= Input(Char[])
+	inputs[:unicodeinput] 			= Input(Char[])
 
-	inputs[:buttonspressed] = Input(IntSet())
-	inputs[:buttondown] 	= Input(0)
-	inputs[:buttonreleased] = Input(0)
+	inputs[:buttonspressed] 		= Input(IntSet())
+	inputs[:buttondown] 			= Input(0)
+	inputs[:buttonreleased] 		= Input(0)
 
 	inputs[:mousebuttonspressed] 	= Input(IntSet())
 	inputs[:mousedown] 				= Input(0)
@@ -419,13 +427,13 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
 	inputs[:mouseposition] 					= mouseposition
 	inputs[:mouseposition_glfw_coordinates] = mouseposition_glfw
 
-	inputs[:scroll_x] = Input(0.0)
-	inputs[:scroll_y] = Input(0.0)
+	inputs[:scroll_x] 		= Input(0.0)
+	inputs[:scroll_y] 		= Input(0.0)
 
-	inputs[:droppedfiles] = Input(UTF8String[])
+	inputs[:droppedfiles] 	= Input(UTF8String[])
 
 	children 	 	= Screen[]
-	children_mouse 	= lift(tuple, Input(children), mouseposition)
+	children_mouse 	= lift(tuple, 		Input(children), mouseposition)
 	children_mouse 	= filter(isoutside, Vector2(0.0), children_mouse)
 	mouse 	     	= lift(last, children_mouse)
 	camera_input 	= merge(inputs, Dict(:mouseposition=>mouse))
@@ -433,7 +441,7 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
 	pocamera     	= OrthographicPixelCamera(camera_input)
 
 	screen = Screen(
-		lift(Rectangle, framebuffers), children, inputs,
+		inputs[:window_size], children, inputs,
 		RenderObject[], Input(false), inputs[:hasfocus],
 		Dict(:perspective=>pcamera, :orthographic_pixel=>pocamera),
 		window
