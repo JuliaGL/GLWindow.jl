@@ -26,7 +26,7 @@ export Scrolled
 export Window
 export leftclickdown
 export Screen
-
+export primarymonitorresolution
 
 
 end

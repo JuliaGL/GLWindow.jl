@@ -1,28 +1,34 @@
-immutable MonitorProperties
+immutable MonitorProperties{T}
 	name::ASCIIString
 	isprimary::Bool
-	position::Vector2
-	physicalsize::Vector2
+	position::Vec{2, T}
+	physicalsize::Vec{2, T}
 	#gamma::Float64
 	gammaramp::GLFW.GammaRamp
 	videomode::GLFW.VidMode
 	videomode_supported::Vector{GLFW.VidMode}
-	dpi::Vector2
+	dpi::Vec{2, T}
 	monitor::Monitor
 end
 
 function MonitorProperties(monitor::Monitor)
 	name 				= GLFW.GetMonitorName(monitor)
 	isprimary 			= GLFW.GetPrimaryMonitor() == monitor
-	position			= Vector2(GLFW.GetMonitorPos(monitor)...)
-	physicalsize		= Vector2(GLFW.GetMonitorPhysicalSize(monitor)...)
+	position			= Vec(GLFW.GetMonitorPos(monitor)...)
+	physicalsize		= Vec(GLFW.GetMonitorPhysicalSize(monitor)...)
 	gammaramp 			= GLFW.GetGammaRamp(monitor)
 	videomode 			= GLFW.GetVideoMode(monitor)
 
-	dpi					= Vector2(videomode.width * 25.4, videomode.height * 25.4) ./ physicalsize
+	dpi					= Vec(videomode.width * 25.4, videomode.height * 25.4) ./ Vec{2, Float64}(physicalsize)
 	videomode_supported = GLFW.GetVideoModes(monitor)
 
 	MonitorProperties(name, isprimary, position, physicalsize, gammaramp, videomode, videomode_supported, dpi, monitor)
+end
+
+function primarymonitorresolution()
+	props = MonitorProperties(GLFW.GetPrimaryMonitor())
+	w,h = props.videomode.width, props.videomode.height
+	Vec(Int(w),Int(h))
 end
 
 function Base.show(io::IO, m::MonitorProperties)
@@ -104,8 +110,8 @@ function Screen(
         hasfocus::Signal{Bool} 			 = parent.hasfocus,
 
         nativewindow::Window 			 = parent.nativewindow,
-        position 					     = Vec3(2),
-        lookat 					     	 = Vec3(0))
+        position 					     = Vec3f0(2),
+        lookat 					     	 = Vec3f0(0))
 
 	pintersect = lift(intersect, lift(zeroposition, parent.area), area)
 
@@ -120,7 +126,7 @@ function Screen(
 	end
 	# creates signals for the camera, which are only active if mouse is inside screen
 	camera_input = merge(inputs, Dict(
-		:mouseposition 	=> keepwhen(insidescreen, Vector2(0.0), relative_mousepos),
+		:mouseposition 	=> keepwhen(insidescreen, Vec2f0(0.0), relative_mousepos),
 		:scroll_x 		=> keepwhen(insidescreen, 0.0, 			inputs[:scroll_x]),
 		:scroll_y 		=> keepwhen(insidescreen, 0.0, 			inputs[:scroll_y]),
 		:window_size 	=> area
@@ -143,10 +149,18 @@ function Screen(
 	push!(parent.children, screen)
 	screen
 end
-function GLAbstraction.isinside(x::Screen, position::Vector2)
+GeometryTypes.isinside{T}(x::Screen, position::Vec{2, T}) = 
 	!any(screen->isinside(screen.area.value, position...), x.children) && isinside(x.area.value, position...)
-end
 
+GeometryTypes.isinside(screen::Screen, point) = isinside(screen.area.value, point...)
+
+function isoutside(screens_mpos)
+	screens, mpos = screens_mpos
+	for screen in screens
+		isinside(screen, mpos) && return false
+	end
+	true
+end
 
 
 function Base.intersect{T}(a::Rectangle{T}, b::Rectangle{T})
@@ -195,9 +209,9 @@ const GLFW_SCREEN_STACK 	   	   = Screen[]
 
 
 import Base.(==)
-Base.hash(x::Window, h::Int64) 	   = hash(convert(Uint, x.ref), h)
-Base.isequal(a::Window, b::Window) = isequal(convert(Uint, a.ref), convert(Uint, b.ref))
-==(a::Window, b::Window) 	       = convert(Uint, a.ref) == convert(Uint, b.ref)
+Base.hash(x::Window, h::Uint64) 	= hash(x.ref, h)
+Base.isequal(a::Window, b::Window)  = isequal(a.ref, b.ref)
+==(a::Window, b::Window) 	        = a.ref == b.ref
 
 function update(window::Window, key::Symbol, value; keepsimilar = false)
 	if haskey(WINDOW_TO_SCREEN_DICT, window)
@@ -214,16 +228,17 @@ function window_closed(window)
     return nothing
 end
 
+
 function window_resized(window, w::Cint, h::Cint)
 	update(window, :_window_size, Rectangle(0, 0, Int(w), Int(h)))
     return nothing
 end
 function framebuffer_size(window, w::Cint, h::Cint)
-	update(window, :framebuffer_size, Vector2(Int(w), Int(h)))
+	update(window, :framebuffer_size, Vec(Int(w), Int(h)))
     return nothing
 end
 function window_position(window, x::Cint, y::Cint)
-	update(window, :windowposition, Vector2(Int(x),Int(y)))
+	update(window, :windowposition, Vec(Int(x),Int(y)))
     return nothing
 end
 
@@ -279,11 +294,11 @@ function unicode_input(window::Window, c::Cuint)
 end
 
 function cursor_position(window::Window, x::Cdouble, y::Cdouble)
-	update(window, :mouseposition_glfw_coordinates, Vector2(Float64(x), Float64(y)))
+	update(window, :mouseposition_glfw_coordinates, Vec{2, Float64}(x, y))
 	return nothing
 end
 function hasfocus(window::Window, focus::Cint)
-	update(window, :hasfocus, Bool(focus==GL_TRUE))
+	update(window, :hasfocus, focus==GL_TRUE)
 	return nothing
 end
 function scroll(window::Window, xoffset::Cdouble, yoffset::Cdouble)
@@ -302,7 +317,7 @@ end
 function dropped_files(window::Window, count::Cint, files::Ptr{Ptr{UInt8}})
 	files = pointer_to_array(files, count)
 	files = map(utf8, files)
-	update(window, :droppedfiles, files, keepsimilar = true)
+	update(window, :droppedfiles, files, keepsimilar=true)
 	return nothing
 end
 function openglerrorcallback(
@@ -333,27 +348,18 @@ global const _openglerrorcallback = cfunction(openglerrorcallback, Void,
 										Ptr{Void}))
 
 
-glfw2gl(mouse, window) = Vector2(mouse.x, window.h - mouse.y)
+glfw2gl(mouse, window) = Vec(mouse.x, window.h - mouse.y)
 
-GLAbstraction.isinside(screen::Screen, point) = isinside(screen.area.value, point...)
-function isoutside(screens_mpos)
-	screens, mpos = screens_mpos
-	for screen in screens
-		isinside(screen, mpos) && return false
-	end
-	true
-end
 
-GeometryTypes.Rectangle{T}(val::Vector2{T}) = Rectangle{T}(0, 0, val...)
+
 function scaling_factor(window, fb)
-	(window.w == 0.0 || window.h == 0.0) && return Vector2(1.0)
-	Vector2{Float64}(fb) ./ Vector2{Float64}(window.w, window.h)
+	(window.w == 0.0 || window.h == 0.0) && return Vec2f0(1.0)
+	Vec{2, Float64}(fb) ./ Vec{2, Float64}(window.w, window.h)
 end
-
 
 
 function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.SAMPLES, 4)])
-	GLFW.Init()
+	
 	for elem in windowhints
 		GLFW.WindowHint(elem...)
 	end
@@ -392,12 +398,12 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
 
 	width, height 		= GLFW.GetWindowSize(window)
 	fwidth, fheight 	= GLFW.GetFramebufferSize(window)
-	framebuffers 		= Input(Vector2{Int}(fwidth, fheight))
+	framebuffers 		= Input(Vec{2, Int}(fwidth, fheight))
 	window_size 		= Input(Rectangle{Int}(0, 0, width, height))
 	glViewport(0, 0, fwidth, fheight)
 
 
-	mouseposition_glfw 	= Input(Vector2(0.0))
+	mouseposition_glfw 	= Input(Vec(0.0, 0.0))
 	mouseposition 		= lift(glfw2gl, mouseposition_glfw, window_size)
 
 	window_scale_factor = lift(scaling_factor, window_size, framebuffers)
@@ -412,7 +418,7 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
 	inputs[:_window_size] 			= window_size # to get 
 	inputs[:window_size] 			= lift(Rectangle, framebuffers) # to get 
 	inputs[:framebuffer_size] 		= framebuffers
-	inputs[:windowposition] 		= Input(Vector2(0))
+	inputs[:windowposition] 		= Input(Vec(0,0))
 
 	inputs[:unicodeinput] 			= Input(Char[])
 
@@ -433,11 +439,11 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
 	inputs[:droppedfiles] 	= Input(UTF8String[])
 
 	children 	 	= Screen[]
-	children_mouse 	= lift(tuple, 		Input(children), mouseposition)
-	children_mouse 	= filter(isoutside, Vector2(0.0), children_mouse)
+	children_mouse 	= lift(tuple, 		children, mouseposition)
+	children_mouse 	= filter(isoutside, Vec(0.0, 0.0), children_mouse)
 	mouse 	     	= lift(last, children_mouse)
 	camera_input 	= merge(inputs, Dict(:mouseposition=>mouse))
-	pcamera  	 	= PerspectiveCamera(camera_input, Vec3(2), Vec3(0))
+	pcamera  	 	= PerspectiveCamera(camera_input, Vec3f0(2), Vec3f0(0))
 	pocamera     	= OrthographicPixelCamera(camera_input)
 
 	screen = Screen(
@@ -448,7 +454,5 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
 	)
 	WINDOW_TO_SCREEN_DICT[window] = screen
 	push!(GLFW_SCREEN_STACK, screen)
-
-	init_glutils()
 	screen
 end
