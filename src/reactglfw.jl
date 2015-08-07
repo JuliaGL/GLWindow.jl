@@ -1,21 +1,21 @@
-immutable MonitorProperties{T}
+immutable MonitorProperties
 	name::ASCIIString
 	isprimary::Bool
-	position::Vec{2, T}
-	physicalsize::Vec{2, T}
+	position::Vec{2, Int}
+	physicalsize::Vec{2, Int}
 	#gamma::Float64
 	gammaramp::GLFW.GammaRamp
 	videomode::GLFW.VidMode
 	videomode_supported::Vector{GLFW.VidMode}
-	dpi::Vec{2, T}
+	dpi::Vec{2, Float64}
 	monitor::Monitor
 end
 
 function MonitorProperties(monitor::Monitor)
 	name 				= GLFW.GetMonitorName(monitor)
 	isprimary 			= GLFW.GetPrimaryMonitor() == monitor
-	position			= Vec(GLFW.GetMonitorPos(monitor)...)
-	physicalsize		= Vec(GLFW.GetMonitorPhysicalSize(monitor)...)
+	position			= Vec{2, Int}(GLFW.GetMonitorPos(monitor)...)
+	physicalsize		= Vec{2, Int}(GLFW.GetMonitorPhysicalSize(monitor)...)
 	gammaramp 			= GLFW.GetGammaRamp(monitor)
 	videomode 			= GLFW.GetVideoMode(monitor)
 
@@ -94,7 +94,8 @@ type Screen
         	symbol("display"*string(SCREEN_ID_COUNTER+=1)),
         	area, parent, children, inputs,
         	renderlist, hidden, hasfocus,
-        	cameras, nativewindow)
+        	cameras, nativewindow
+        )
     end
 end
 
@@ -117,12 +118,10 @@ function Screen(
 
 	#checks if mouse is inside screen and not inside any children
 	relative_mousepos = lift(inputs[:mouseposition]) do mpos
-		Point2(mpos.x-pintersect.value.x, mpos.y-pintersect.value.y)
+		Point{2, Float64}(mpos[1]-pintersect.value.x, mpos[2]-pintersect.value.y)
 	end
 	insidescreen = lift(relative_mousepos) do mpos
-		mpos.x>=0 && mpos.y>=0 && mpos.x <= pintersect.value.w && mpos.y <= pintersect.value.h && !any(children) do screen
-			isinside(screen.area.value, mpos...)
-		end
+		mpos[1]>=0 && mpos[2]>=0 && mpos[1] <= pintersect.value.w && mpos[2] <= pintersect.value.h && !any(screen->isinside(screen.area.value, mpos...), children)
 	end
 	# creates signals for the camera, which are only active if mouse is inside screen
 	camera_input = merge(inputs, Dict(
@@ -145,7 +144,8 @@ function Screen(
     	area, parent, children, new_input,
     	renderlist, hidden, hasfocus,
     	Dict(:perspective=>pcamera, :orthographic_pixel=>ocamera),
-    	nativewindow)
+    	nativewindow
+    )
 	push!(parent.children, screen)
 	screen
 end
@@ -175,7 +175,7 @@ function Base.intersect{T}(a::Rectangle{T}, b::Rectangle{T})
 	(isempty(xintersect) || isempty(yintersect) ) && return Rectangle(zero(T), zero(T), zero(T), zero(T))
 	x,y 	= first(xintersect), first(yintersect)
 	xw,yh 	= last(xintersect), last(yintersect)
-	Rectangle(x,y, xw-x, yh-y)
+	Rectangle(x,y, xw, yh)
 end
 
 function GLAbstraction.render(x::Screen, parent::Screen=x, context=x.area.value)
@@ -258,7 +258,7 @@ function key_pressed(window::Window, button::Cint, scancode::Cint, action::Cint,
 		elseif action == GLFW.RELEASE
 			buttonreleased 	= screen.inputs[:buttonreleased]
 			push!(buttonreleased, buttonI)
-			setdiff!(keyset, Set(buttonI))
+			keyset = setdiff(keyset,buttonI)
 			push!(buttonspressed, keyset)
 		elseif action == GLFW.REPEAT
 			push!(keyset, buttonI)
@@ -281,7 +281,7 @@ function mouse_clicked(window::Window, button::Cint, action::Cint, mods::Cint)
 	elseif action == GLFW.RELEASE
 		buttonreleased 	= screen.inputs[:mousereleased]
 		push!(buttonreleased, 	buttonI)
-		setdiff!(keyset,		Set(buttonI))
+		keyset = setdiff(keyset,	buttonI)
 		push!(buttonspressed, 	keyset)
 	end
 	return nothing
@@ -348,12 +348,12 @@ global const _openglerrorcallback = cfunction(openglerrorcallback, Void,
 										Ptr{Void}))
 
 
-glfw2gl(mouse, window) = Vec(mouse.x, window.h - mouse.y)
+glfw2gl(mouse, window) = Vec(mouse[1], window.h - mouse[2])
 
 
 
 function scaling_factor(window, fb)
-	(window.w == 0.0 || window.h == 0.0) && return Vec2f0(1.0)
+	(window.w == 0.0 || window.h == 0.0) && return Vec{2, Float64}(1.0)
 	Vec{2, Float64}(fb) ./ Vec{2, Float64}(window.w, window.h)
 end
 
@@ -422,11 +422,11 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
 
 	inputs[:unicodeinput] 			= Input(Char[])
 
-	inputs[:buttonspressed] 		= Input(IntSet())
+	inputs[:buttonspressed] 		= Input(Int[])
 	inputs[:buttondown] 			= Input(0)
 	inputs[:buttonreleased] 		= Input(0)
 
-	inputs[:mousebuttonspressed] 	= Input(IntSet())
+	inputs[:mousebuttonspressed] 	= Input(Int[])
 	inputs[:mousedown] 				= Input(0)
 	inputs[:mousereleased] 			= Input(0)
 
