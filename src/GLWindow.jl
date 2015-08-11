@@ -28,5 +28,10 @@ export leftclickdown
 export Screen
 export primarymonitorresolution
 
+function __init__()
+    global WINDOW_TO_SCREEN_DICT = Dict{Window, Screen}()
+    global GLFW_SCREEN_STACK     = Screen[]
+end
+
 
 end

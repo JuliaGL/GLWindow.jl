@@ -125,7 +125,7 @@ function Screen(
 	end
 	# creates signals for the camera, which are only active if mouse is inside screen
 	camera_input = merge(inputs, Dict(
-		:mouseposition 	=> keepwhen(insidescreen, Vec2f0(0.0), relative_mousepos),
+		:mouseposition 	=> keepwhen(insidescreen, Vec(0.0, 0.0), relative_mousepos),
 		:scroll_x 		=> keepwhen(insidescreen, 0.0, 			inputs[:scroll_x]),
 		:scroll_y 		=> keepwhen(insidescreen, 0.0, 			inputs[:scroll_y]),
 		:window_size 	=> area
@@ -149,7 +149,7 @@ function Screen(
 	push!(parent.children, screen)
 	screen
 end
-GeometryTypes.isinside{T}(x::Screen, position::Vec{2, T}) = 
+GeometryTypes.isinside{T}(x::Screen, position::Vec{2, T}) =
 	!any(screen->isinside(screen.area.value, position...), x.children) && isinside(x.area.value, position...)
 
 GeometryTypes.isinside(screen::Screen, point) = isinside(screen.area.value, point...)
@@ -173,17 +173,17 @@ function Base.intersect{T}(a::Rectangle{T}, b::Rectangle{T})
 	xintersect = intersect(axrange, bxrange)
 	yintersect = intersect(ayrange, byrange)
 	(isempty(xintersect) || isempty(yintersect) ) && return Rectangle(zero(T), zero(T), zero(T), zero(T))
-	x,y 	= first(xintersect), first(yintersect)
-	xw,yh 	= last(xintersect), last(yintersect)
-	Rectangle(x,y, xw, yh)
+	x,y   = first(xintersect), first(yintersect)
+	xw,yh = last(xintersect), last(yintersect)
+	Rectangle(x,y, xw-x, yh-y)
 end
 
 function GLAbstraction.render(x::Screen, parent::Screen=x, context=x.area.value)
 	if x.inputs[:open].value
-		sa 	 	= x.area.value
-		sa 		= Rectangle(context.x+sa.x, context.y+sa.y, sa.w, sa.h) # bring back to absolute values
-		pa 	 	= context
-		sa_pa 	= intersect(pa, sa)
+		sa    = x.area.value
+		sa    = Rectangle(context.x+sa.x, context.y+sa.y, sa.w, sa.h) # bring back to absolute values
+		pa    = context
+		sa_pa = intersect(pa, sa)
 		if sa_pa != Rectangle{Int}(0,0,0,0)
 	 		glEnable(GL_SCISSOR_TEST)
 	    	glScissor(sa_pa)
@@ -204,8 +204,6 @@ function Base.show(io::IO, m::Screen)
 	end
 end
 
-const WINDOW_TO_SCREEN_DICT 	   = Dict{Window, Screen}()
-const GLFW_SCREEN_STACK 	   	   = Screen[]
 
 
 import Base.(==)
@@ -234,7 +232,7 @@ function window_resized(window, w::Cint, h::Cint)
     return nothing
 end
 function framebuffer_size(window, w::Cint, h::Cint)
-	update(window, :framebuffer_size, Vec(Int(w), Int(h)))
+	update(window, :framebuffer_size, Vec{2, Int}(w, h))
     return nothing
 end
 function window_position(window, x::Cint, y::Cint)
@@ -352,14 +350,14 @@ glfw2gl(mouse, window) = Vec(mouse[1], window.h - mouse[2])
 
 
 
-function scaling_factor(window, fb)
-	(window.w == 0.0 || window.h == 0.0) && return Vec{2, Float64}(1.0)
-	Vec{2, Float64}(fb) ./ Vec{2, Float64}(window.w, window.h)
+function scaling_factor(window::Rectangle{Int}, fb::Vec{2, Int})
+	(window.w == 0 || window.h == 0) && return Vec{2, Float64}(1.0)
+	Vec{2, Float64}(fb[1] / window.w, fb[2] / window.h)
 end
 
 
 function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.SAMPLES, 4)])
-	
+
 	for elem in windowhints
 		GLFW.WindowHint(elem...)
 	end
@@ -369,7 +367,7 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
 			debugging = false
 		end
 	end
-	
+
 	GLFW.WindowHint(GLFW.CONTEXT_VERSION_MAJOR, 3)
 	GLFW.WindowHint(GLFW.CONTEXT_VERSION_MINOR, 3)
 	GLFW.WindowHint(GLFW.OPENGL_FORWARD_COMPAT, GL_TRUE)
@@ -415,8 +413,8 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
 	inputs[:open] 					= Input(true)
 	inputs[:hasfocus] 				= Input(false)
 
-	inputs[:_window_size] 			= window_size # to get 
-	inputs[:window_size] 			= lift(Rectangle, framebuffers) # to get 
+	inputs[:_window_size] 			= window_size # to get
+	inputs[:window_size] 			= lift(Rectangle, framebuffers) # to get
 	inputs[:framebuffer_size] 		= framebuffers
 	inputs[:windowposition] 		= Input(Vec(0,0))
 
@@ -439,8 +437,8 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
 	inputs[:droppedfiles] 	= Input(UTF8String[])
 
 	children 	 	= Screen[]
-	children_mouse 	= lift(tuple, 		children, mouseposition)
-	children_mouse 	= filter(isoutside, Vec(0.0, 0.0), children_mouse)
+	children_mouse 	= lift(tuple, children, mouseposition)
+	children_mouse 	= filter(isoutside, (Screen[], Vec(0.0, 0.0)), children_mouse)
 	mouse 	     	= lift(last, children_mouse)
 	camera_input 	= merge(inputs, Dict(:mouseposition=>mouse))
 	pcamera  	 	= PerspectiveCamera(camera_input, Vec3f0(2), Vec3f0(0))
