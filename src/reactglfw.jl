@@ -50,6 +50,7 @@ type Screen
     inputs 		::Dict{Symbol, Any}
     renderlist 	::Vector{RenderObject}
 
+
     hidden 		::Signal{Bool}
     hasfocus 	::Signal{Bool}
 
@@ -203,7 +204,6 @@ function Base.show(io::IO, m::Screen)
         println(io, "  ", key, " => ", typeof(value))
     end
 end
-
 
 
 import Base.(==)
@@ -453,4 +453,5 @@ function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.
     WINDOW_TO_SCREEN_DICT[window] = screen
     push!(GLFW_SCREEN_STACK, screen)
     screen
+
 end
