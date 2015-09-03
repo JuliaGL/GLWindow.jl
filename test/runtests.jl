@@ -1,16 +1,15 @@
-using GLWindow, GLFW
+using GLWindow, GLFW, Reactive
 using Base.Test  
 
 # write your own tests here
-window = createwindow("test", 512,512)
+GLFW.Init()
+window = createwindow("test", 500,500)
 
-GLFW.SwapBuffers(window.nativewindow)
 while window.inputs[:open].value
-	yield()
+
+	GLFW.SwapBuffers(window.nativewindow)
+
 	GLFW.PollEvents()
 end
 GLFW.Terminate()
-
-
-println("\033[32;1mSUCCESS\033[0m")
 
