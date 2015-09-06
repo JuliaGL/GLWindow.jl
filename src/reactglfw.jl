@@ -211,7 +211,7 @@ Base.hash(x::Window, h::Uint64)    = hash(x.ref, h)
 Base.isequal(a::Window, b::Window) = isequal(a.ref, b.ref)
 ==(a::Window, b::Window) 	       = a.ref == b.ref
 
-function update(window::Window, key::Symbol, value, keepsimilar::Bool = false)
+function update(window::Window, key::Symbol, value; keepsimilar::Bool = false)
     if haskey(WINDOW_TO_SCREEN_DICT, window)
         screen  = WINDOW_TO_SCREEN_DICT[window]
         input 	= screen.inputs[key]
