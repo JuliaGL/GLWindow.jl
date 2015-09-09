@@ -121,13 +121,13 @@ function Screen(
         transparent                      = Input(false)
     )
 
-    pintersect = lift(intersect, lift(zeroposition, parent.area), area)
+    pintersect = const_lift(intersect, const_lift(zeroposition, parent.area), area)
 
     #checks if mouse is inside screen and not inside any children
-    relative_mousepos = lift(inputs[:mouseposition]) do mpos
+    relative_mousepos = const_lift(inputs[:mouseposition]) do mpos
         Point{2, Float64}(mpos[1]-pintersect.value.x, mpos[2]-pintersect.value.y)
     end
-    insidescreen = lift(relative_mousepos) do mpos
+    insidescreen = const_lift(relative_mousepos) do mpos
         mpos[1]>=0 && mpos[2]>=0 && mpos[1] <= pintersect.value.w && mpos[2] <= pintersect.value.h && !any(screen->isinside(screen.area.value, mpos...), children)
     end
     # creates signals for the camera, which are only active if mouse is inside screen
@@ -407,11 +407,11 @@ function createwindow(name::AbstractString, w, h; debugging = false, windowhints
 
 
     mouseposition_glfw 	= Input(Vec(0.0, 0.0))
-    mouseposition 		= lift(glfw2gl, mouseposition_glfw, window_size)
+    mouseposition 		= const_lift(glfw2gl, mouseposition_glfw, window_size)
 
-    window_scale_factor = lift(scaling_factor, window_size, framebuffers)
+    window_scale_factor = const_lift(scaling_factor, window_size, framebuffers)
 
-    mouseposition 		= lift(.*, mouseposition, window_scale_factor)
+    mouseposition 		= const_lift(.*, mouseposition, window_scale_factor)
 
     inputs = Dict{Symbol, Any}()
     inputs[:insidewindow] 			= Input(false)
@@ -419,7 +419,7 @@ function createwindow(name::AbstractString, w, h; debugging = false, windowhints
     inputs[:hasfocus] 				= Input(false)
 
     inputs[:_window_size] 			= window_size # to get
-    inputs[:window_size] 			= lift(Rectangle, framebuffers) # to get
+    inputs[:window_size] 			= const_lift(Rectangle, framebuffers) # to get
     inputs[:framebuffer_size] 		= framebuffers
     inputs[:windowposition] 		= Input(Vec(0,0))
 
@@ -442,9 +442,9 @@ function createwindow(name::AbstractString, w, h; debugging = false, windowhints
     inputs[:droppedfiles] 	= Input(UTF8String[])
 
     children 	 	= Screen[]
-    children_mouse 	= lift(tuple, children, mouseposition)
+    children_mouse 	= const_lift(tuple, children, mouseposition)
     children_mouse 	= filter(isoutside, (Screen[], Vec(0.0, 0.0)), children_mouse)
-    mouse 	     	= lift(last, children_mouse)
+    mouse 	     	= const_lift(last, children_mouse)
     camera_input 	= merge(inputs, Dict(:mouseposition=>mouse))
     pcamera  	 	= PerspectiveCamera(camera_input, Vec3f0(2), Vec3f0(0))
     pocamera     	= OrthographicPixelCamera(camera_input)
