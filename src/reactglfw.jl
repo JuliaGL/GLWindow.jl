@@ -132,9 +132,9 @@ function Screen(
     end
     # creates signals for the camera, which are only active if mouse is inside screen
     camera_input = merge(inputs, Dict(
-        :mouseposition 	=> keepwhen(insidescreen, Vec(0.0, 0.0), relative_mousepos),
-        :scroll_x 		=> keepwhen(insidescreen, 0.0, 			inputs[:scroll_x]),
-        :scroll_y 		=> keepwhen(insidescreen, 0.0, 			inputs[:scroll_y]),
+        :mouseposition 	=> filterwhen(insidescreen, Vec(0.0, 0.0), relative_mousepos),
+        :scroll_x 		=> filterwhen(insidescreen, 0.0, 			inputs[:scroll_x]),
+        :scroll_y 		=> filterwhen(insidescreen, 0.0, 			inputs[:scroll_y]),
         :window_size 	=> area
     ))
     new_input = merge(inputs, Dict(
