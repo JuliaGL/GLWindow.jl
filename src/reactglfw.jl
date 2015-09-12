@@ -56,6 +56,7 @@ type Screen
 
     cameras 	::Dict{Symbol, Any}
     nativewindow::Window
+    transparent ::Signal{Bool}
 
     function Screen(
         area,
@@ -67,14 +68,16 @@ type Screen
         hidden 		::Signal{Bool},
         hasfocus 	::Signal{Bool},
         cameras 	::Dict{Symbol, Any},
-        nativewindow::Window)
+        nativewindow::Window,
+        transparent = Input(false))
 
         global SCREEN_ID_COUNTER
 
         new(
             symbol("display"*string(SCREEN_ID_COUNTER+=1)),
             area, parent, children, inputs, renderlist,
-            hidden, hasfocus, cameras, nativewindow)
+            hidden, hasfocus, cameras, nativewindow, transparent
+        )
     end
 
     function Screen(
@@ -86,7 +89,8 @@ type Screen
         hidden  	 ::Signal{Bool},
         hasfocus 	 ::Signal{Bool},
         cameras 	 ::Dict{Symbol, Any},
-        nativewindow ::Window)
+        nativewindow ::Window,
+        transparent = Input(false))
         parent = new()
 
         global SCREEN_ID_COUNTER
@@ -95,7 +99,7 @@ type Screen
             symbol("display"*string(SCREEN_ID_COUNTER+=1)),
             area, parent, children, inputs,
             renderlist, hidden, hasfocus,
-            cameras, nativewindow
+            cameras, nativewindow, transparent
         )
     end
 end
@@ -113,7 +117,9 @@ function Screen(
 
         nativewindow::Window 			 = parent.nativewindow,
         position 					     = Vec3f0(2),
-        lookat 					     	 = Vec3f0(0))
+        lookat 					     	 = Vec3f0(0),
+        transparent                      = Input(false)
+    )
 
     pintersect = lift(intersect, lift(zeroposition, parent.area), area)
 
@@ -145,7 +151,7 @@ function Screen(
         area, parent, children, new_input,
         renderlist, hidden, hasfocus,
         Dict(:perspective=>pcamera, :orthographic_pixel=>ocamera),
-        nativewindow
+        nativewindow,transparent
     )
     push!(parent.children, screen)
     screen
@@ -186,10 +192,10 @@ function GLAbstraction.render(x::Screen, parent::Screen=x, context=x.area.value)
         pa    = context
         sa_pa = intersect(pa, sa)
         if sa_pa != Rectangle{Int}(0,0,0,0)
-             glEnable(GL_SCISSOR_TEST)
+            glEnable(GL_SCISSOR_TEST)
             glScissor(sa_pa)
             glViewport(sa)
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+            x.transparent.value || glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
             render(x.renderlist)
             for screen in x.children; render(screen, x, sa); end
         end
