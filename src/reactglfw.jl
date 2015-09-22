@@ -213,7 +213,7 @@ end
 
 
 import Base.(==)
-Base.hash(x::Window, h::Uint64)    = hash(x.ref, h)
+Base.hash(x::Window, h::UInt64)    = hash(x.ref, h)
 Base.isequal(a::Window, b::Window) = isequal(a.ref, b.ref)
 ==(a::Window, b::Window) 	       = a.ref == b.ref
 
@@ -362,7 +362,7 @@ function scaling_factor(window::Rectangle{Int}, fb::Vec{2, Int})
 end
 
 
-function createwindow(name::String, w, h; debugging = false, windowhints=[(GLFW.SAMPLES, 4)])
+function createwindow(name::AbstractString, w, h; debugging = false, windowhints=[(GLFW.SAMPLES, 4)])
 
     for elem in windowhints
         GLFW.WindowHint(elem...)
