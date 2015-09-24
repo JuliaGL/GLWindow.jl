@@ -258,16 +258,15 @@ function key_pressed(window::Window, button::Cint, scancode::Cint, action::Cint,
             buttondown 	= screen.inputs[:buttondown]
             push!(buttondown, buttonI)
             push!(keyset, buttonI)
-            push!(buttonspressed, keyset)
         elseif action == GLFW.RELEASE
             buttonreleased 	= screen.inputs[:buttonreleased]
             push!(buttonreleased, buttonI)
             keyset = setdiff(keyset,buttonI)
-            push!(buttonspressed, keyset)
         elseif action == GLFW.REPEAT
             push!(keyset, buttonI)
-            push!(buttonspressed, keyset)
         end
+        keyset = unique(keyset)
+        push!(buttonspressed, keyset)
     end
     return nothing
 end
