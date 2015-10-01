@@ -1,8 +1,11 @@
 using GLWindow, GLFW, Reactive
 using Base.Test  
 
-# write your own tests here
-if isinteractive() # only do test if called from REPL... this is for automated testing environments which fail for OpenGL stuff, but I'd like to test if at least including works
+function is_ci()
+	get(ENV, "TRAVIS", "") == "true" || get(ENV, "APPVEYOR", "") == "true" || get(ENV, "CI", "") == "true"
+end
+
+if !is_ci() # only do test if not CI... this is for automated testing environments which fail for OpenGL stuff, but I'd like to test if at least including works
 
 GLFW.Init()
 window = createwindow("test", 500,500)
