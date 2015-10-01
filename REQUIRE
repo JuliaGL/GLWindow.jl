@@ -1,7 +1,7 @@
-julia 0.3-
+julia 0.4
 GLFW
 Reactive
-ImmutableArrays
+GeometryTypes
 ModernGL
 GLAbstraction
 Compat
