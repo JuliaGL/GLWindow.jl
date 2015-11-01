@@ -3,8 +3,6 @@ immutable MonitorProperties
     isprimary::Bool
     position::Vec{2, Int}
     physicalsize::Vec{2, Int}
-    #gamma::Float64
-    gammaramp::GLFW.GammaRamp
     videomode::GLFW.VidMode
     videomode_supported::Vector{GLFW.VidMode}
     dpi::Vec{2, Float64}
@@ -16,13 +14,12 @@ function MonitorProperties(monitor::Monitor)
     isprimary 			= GLFW.GetPrimaryMonitor() == monitor
     position			= Vec{2, Int}(GLFW.GetMonitorPos(monitor)...)
     physicalsize		= Vec{2, Int}(GLFW.GetMonitorPhysicalSize(monitor)...)
-    gammaramp 			= GLFW.GetGammaRamp(monitor)
     videomode 			= GLFW.GetVideoMode(monitor)
 
     dpi					= Vec(videomode.width * 25.4, videomode.height * 25.4) ./ Vec{2, Float64}(physicalsize)
     videomode_supported = GLFW.GetVideoModes(monitor)
 
-    MonitorProperties(name, isprimary, position, physicalsize, gammaramp, videomode, videomode_supported, dpi, monitor)
+    MonitorProperties(name, isprimary, position, physicalsize, videomode, videomode_supported, dpi, monitor)
 end
 
 function primarymonitorresolution()
