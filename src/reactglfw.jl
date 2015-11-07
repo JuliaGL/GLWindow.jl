@@ -101,6 +101,11 @@ type Screen
     end
 end
 
+"""
+Check if a Screen is opened.
+"""
+Base.isopen(s::Screen) = s.inputs[:open].value
+
 #Screen constructor
 function Screen(
         parent::Screen;
