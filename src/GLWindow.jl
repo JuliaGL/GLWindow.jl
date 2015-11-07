@@ -15,6 +15,8 @@ import GLAbstraction.render
 include("reactglfw.jl")
 
 export createwindow
+export swapbuffers
+export pollevents
 export Screen
 export UnicodeInput
 export KeyPressed

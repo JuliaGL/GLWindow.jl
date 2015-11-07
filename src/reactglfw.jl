@@ -106,6 +106,20 @@ Check if a Screen is opened.
 """
 Base.isopen(s::Screen) = s.inputs[:open].value
 
+"""
+Swap the framebuffers on the Screen.
+"""
+function swapbuffers(s::Screen)
+    GLFW.SwapBuffers(s.nativewindow)
+end
+
+"""
+Poll events on the screen which will propogate signals through react.
+"""
+function pollevents(::Screen)
+    GLFW.PollEvents()
+end
+
 #Screen constructor
 function Screen(
         parent::Screen;

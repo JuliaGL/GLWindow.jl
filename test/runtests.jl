@@ -1,5 +1,5 @@
-using GLWindow, GLFW, Reactive
-using Base.Test  
+using GLWindow
+using Base.Test
 
 function is_ci()
 	get(ENV, "TRAVIS", "") == "true" || get(ENV, "APPVEYOR", "") == "true" || get(ENV, "CI", "") == "true"
@@ -11,10 +11,9 @@ window = createwindow("test", 500,500)
 
 while isopen(window)
 
-	GLFW.SwapBuffers(window.nativewindow)
+	swapbuffers(window)
 
-	GLFW.PollEvents()
+	pollevents(window)
 end
-GLFW.Terminate()
 
 end
