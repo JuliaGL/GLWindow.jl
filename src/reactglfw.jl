@@ -317,10 +317,8 @@ function entered_window(window::Window, entered::Cint)
     return nothing
 end
 
-function dropped_files(window::Window, count::Cint, files::Ptr{Ptr{UInt8}})
-    files = pointer_to_array(files, count)
-    files = map(utf8, files)
-    update(window, :droppedfiles, files, keepsimilar=true)
+function dropped_files{T <: AbstractString}(window::Window, files::Vector{T})
+    update(window, :droppedfiles, map(utf8, files), keepsimilar=true)
     return nothing
 end
 function openglerrorcallback(
