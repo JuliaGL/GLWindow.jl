@@ -185,22 +185,6 @@ function isoutside(screens_mpos)
     true
 end
 
-
-function Base.intersect{T}(a::Rectangle{T}, b::Rectangle{T})
-    axrange = a.x:xwidth(a)
-    ayrange = a.y:yheight(a)
-
-    bxrange = b.x:xwidth(b)
-    byrange = b.y:yheight(b)
-
-    xintersect = intersect(axrange, bxrange)
-    yintersect = intersect(ayrange, byrange)
-    (isempty(xintersect) || isempty(yintersect) ) && return Rectangle(zero(T), zero(T), zero(T), zero(T))
-    x,y   = first(xintersect), first(yintersect)
-    xw,yh = last(xintersect), last(yintersect)
-    Rectangle(x,y, xw-x, yh-y)
-end
-
 function GLAbstraction.render(x::Screen, parent::Screen=x, context=x.area.value)
     if x.inputs[:open].value
         sa    = x.area.value
