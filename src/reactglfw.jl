@@ -66,7 +66,7 @@ type Screen
         hasfocus 	::Signal{Bool},
         cameras 	::Dict{Symbol, Any},
         nativewindow::Window,
-        transparent = Input(false))
+        transparent = Signal(false))
 
         global SCREEN_ID_COUNTER
 
@@ -87,7 +87,7 @@ type Screen
         hasfocus 	 ::Signal{Bool},
         cameras 	 ::Dict{Symbol, Any},
         nativewindow ::Window,
-        transparent = Input(false))
+        transparent = Signal(false))
         parent = new()
 
         global SCREEN_ID_COUNTER
@@ -134,7 +134,7 @@ function Screen(
         nativewindow::Window 			 = parent.nativewindow,
         position 					     = Vec3f0(2),
         lookat 					     	 = Vec3f0(0),
-        transparent                      = Input(false)
+        transparent                      = Signal(false)
     )
 
     pintersect = const_lift(intersect, const_lift(zeroposition, parent.area), area)
@@ -415,12 +415,12 @@ function createwindow(name::AbstractString, w, h; debugging = false, windowhints
 
     width, height 		= GLFW.GetWindowSize(window)
     fwidth, fheight 	= GLFW.GetFramebufferSize(window)
-    framebuffers 		= Input(Vec{2, Int}(fwidth, fheight))
-    window_size 		= Input(Rectangle{Int}(0, 0, width, height))
+    framebuffers 		= Signal(Vec{2, Int}(fwidth, fheight))
+    window_size 		= Signal(Rectangle{Int}(0, 0, width, height))
     glViewport(0, 0, fwidth, fheight)
 
 
-    mouseposition_glfw 	= Input(Vec(0.0, 0.0))
+    mouseposition_glfw 	= Signal(Vec(0.0, 0.0))
     mouseposition 		= const_lift(glfw2gl, mouseposition_glfw, window_size)
 
     window_scale_factor = const_lift(scaling_factor, window_size, framebuffers)
@@ -428,32 +428,32 @@ function createwindow(name::AbstractString, w, h; debugging = false, windowhints
     mouseposition 		= const_lift(.*, mouseposition, window_scale_factor)
 
     inputs = Dict{Symbol, Any}()
-    inputs[:insidewindow] 			= Input(false)
-    inputs[:open] 					= Input(true)
-    inputs[:hasfocus] 				= Input(false)
+    inputs[:insidewindow] 			= Signal(false)
+    inputs[:open] 					= Signal(true)
+    inputs[:hasfocus] 				= Signal(false)
 
     inputs[:_window_size] 			= window_size # to get
     inputs[:window_size] 			= const_lift(Rectangle, framebuffers) # to get
     inputs[:framebuffer_size] 		= framebuffers
-    inputs[:windowposition] 		= Input(Vec(0,0))
+    inputs[:windowposition] 		= Signal(Vec(0,0))
 
-    inputs[:unicodeinput] 			= Input(Char[])
+    inputs[:unicodeinput] 			= Signal(Char[])
 
-    inputs[:buttonspressed] 		= Input(Int[])
-    inputs[:buttondown] 			= Input(0)
-    inputs[:buttonreleased] 		= Input(0)
+    inputs[:buttonspressed] 		= Signal(Int[])
+    inputs[:buttondown] 			= Signal(0)
+    inputs[:buttonreleased] 		= Signal(0)
 
-    inputs[:mousebuttonspressed] 	= Input(Int[])
-    inputs[:mousedown] 				= Input(0)
-    inputs[:mousereleased] 			= Input(0)
+    inputs[:mousebuttonspressed] 	= Signal(Int[])
+    inputs[:mousedown] 				= Signal(0)
+    inputs[:mousereleased] 			= Signal(0)
 
     inputs[:mouseposition] 					= mouseposition
     inputs[:mouseposition_glfw_coordinates] = mouseposition_glfw
 
-    inputs[:scroll_x] 		= Input(0.0)
-    inputs[:scroll_y] 		= Input(0.0)
+    inputs[:scroll_x] 		= Signal(0.0)
+    inputs[:scroll_y] 		= Signal(0.0)
 
-    inputs[:droppedfiles] 	= Input(UTF8String[])
+    inputs[:droppedfiles] 	= Signal(UTF8String[])
 
     children 	 	= Screen[]
     children_mouse 	= const_lift(tuple, children, mouseposition)
@@ -465,7 +465,7 @@ function createwindow(name::AbstractString, w, h; debugging = false, windowhints
 
     screen = Screen(
         inputs[:window_size], children, inputs,
-        RenderObject[], Input(false), inputs[:hasfocus],
+        RenderObject[], Signal(false), inputs[:hasfocus],
         Dict(:perspective=>pcamera, :orthographic_pixel=>pocamera),
         window
     )
