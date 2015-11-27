@@ -34,14 +34,14 @@ function Base.show(io::IO, m::MonitorProperties)
     println(io, "resolution: ", m.videomode.width, "x", m.videomode.height)
     println(io, "dpi: ", m.dpi[1], "x", m.dpi[2])
 end
-zeroposition{T}(r::Rectangle{T}) = Rectangle(zero(T), zero(T), r.w, r.h)
+zeroposition{T}(r::SimpleRectangle{T}) = SimpleRectangle(zero(T), zero(T), r.w, r.h)
 export zeroposition
 
 SCREEN_ID_COUNTER = 1
 
 type Screen
     id 		 	::Symbol
-    area 		::Signal{Rectangle{Int}}
+    area 		::Signal{SimpleRectangle{Int}}
     parent 		::Screen
     children 	::Vector{Screen}
     inputs 		::Dict{Symbol, Any}
@@ -185,29 +185,13 @@ function isoutside(screens_mpos)
     true
 end
 
-
-function Base.intersect{T}(a::Rectangle{T}, b::Rectangle{T})
-    axrange = a.x:xwidth(a)
-    ayrange = a.y:yheight(a)
-
-    bxrange = b.x:xwidth(b)
-    byrange = b.y:yheight(b)
-
-    xintersect = intersect(axrange, bxrange)
-    yintersect = intersect(ayrange, byrange)
-    (isempty(xintersect) || isempty(yintersect) ) && return Rectangle(zero(T), zero(T), zero(T), zero(T))
-    x,y   = first(xintersect), first(yintersect)
-    xw,yh = last(xintersect), last(yintersect)
-    Rectangle(x,y, xw-x, yh-y)
-end
-
 function GLAbstraction.render(x::Screen, parent::Screen=x, context=x.area.value)
     if x.inputs[:open].value
         sa    = x.area.value
-        sa    = Rectangle(context.x+sa.x, context.y+sa.y, sa.w, sa.h) # bring back to absolute values
+        sa    = SimpleRectangle(context.x+sa.x, context.y+sa.y, sa.w, sa.h) # bring back to absolute values
         pa    = context
         sa_pa = intersect(pa, sa)
-        if sa_pa != Rectangle{Int}(0,0,0,0)
+        if sa_pa != SimpleRectangle{Int}(0,0,0,0)
             glEnable(GL_SCISSOR_TEST)
             glScissor(sa_pa)
             glViewport(sa)
@@ -250,7 +234,7 @@ end
 
 
 function window_resized(window, w::Cint, h::Cint)
-    update(window, :_window_size, Rectangle(0, 0, Int(w), Int(h)))
+    update(window, :_window_size, SimpleRectangle(0, 0, Int(w), Int(h)))
     return nothing
 end
 function framebuffer_size(window, w::Cint, h::Cint)
@@ -369,7 +353,7 @@ glfw2gl(mouse, window) = Vec(mouse[1], window.h - mouse[2])
 
 
 
-function scaling_factor(window::Rectangle{Int}, fb::Vec{2, Int})
+function scaling_factor(window::SimpleRectangle{Int}, fb::Vec{2, Int})
     (window.w == 0 || window.h == 0) && return Vec{2, Float64}(1.0)
     Vec{2, Float64}(fb[1] / window.w, fb[2] / window.h)
 end
@@ -416,7 +400,7 @@ function createwindow(name::AbstractString, w, h; debugging = false, windowhints
     width, height 		= GLFW.GetWindowSize(window)
     fwidth, fheight 	= GLFW.GetFramebufferSize(window)
     framebuffers 		= Signal(Vec{2, Int}(fwidth, fheight))
-    window_size 		= Signal(Rectangle{Int}(0, 0, width, height))
+    window_size 		= Signal(SimpleRectangle{Int}(0, 0, width, height))
     glViewport(0, 0, fwidth, fheight)
 
 
@@ -433,7 +417,7 @@ function createwindow(name::AbstractString, w, h; debugging = false, windowhints
     inputs[:hasfocus] 				= Signal(false)
 
     inputs[:_window_size] 			= window_size # to get
-    inputs[:window_size] 			= const_lift(Rectangle, framebuffers) # to get
+    inputs[:window_size] 			= const_lift(SimpleRectangle, framebuffers) # to get
     inputs[:framebuffer_size] 		= framebuffers
     inputs[:windowposition] 		= Signal(Vec(0,0))
 
