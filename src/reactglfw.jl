@@ -54,6 +54,7 @@ type Screen
     cameras 	::Dict{Symbol, Any}
     nativewindow::Window
     transparent ::Signal{Bool}
+    keydict     ::Dict{Int, Bool}
 
     function Screen(
         area,
@@ -73,7 +74,7 @@ type Screen
         new(
             symbol("display"*string(SCREEN_ID_COUNTER+=1)),
             area, parent, children, inputs, renderlist,
-            hidden, hasfocus, cameras, nativewindow, transparent
+            hidden, hasfocus, cameras, nativewindow, transparent, Dict{Int, Bool}()
         )
     end
 
@@ -96,7 +97,7 @@ type Screen
             symbol("display"*string(SCREEN_ID_COUNTER+=1)),
             area, parent, children, inputs,
             renderlist, hidden, hasfocus,
-            cameras, nativewindow, transparent
+            cameras, nativewindow, transparent, Dict{Int, Bool}()
         )
     end
 end
@@ -247,26 +248,25 @@ function window_position(window, x::Cint, y::Cint)
 end
 
 
-
 function key_pressed(window::Window, button::Cint, scancode::Cint, action::Cint, mods::Cint)
     screen = WINDOW_TO_SCREEN_DICT[window]
     if button != GLFW.KEY_UNKNOWN
-        buttonspressed 	= screen.inputs[:buttonspressed]
-        keyset 			= buttonspressed.value
-        buttonI 		= Int(button)
+        buttonI = Int(button)
+        s  = screen.inputs[:buttonspressed]
         if action == GLFW.PRESS
-            buttondown 	= screen.inputs[:buttondown]
-            push!(buttondown, buttonI)
-            push!(keyset, buttonI)
+            push!(screen.inputs[:buttondown], buttonI)
+            @assert !haskey(screen.keydict, buttonI) "pressed $buttonI, while it was already pressed. Something's fishy with the Event system"
+            screen.keydict[buttonI] = true
+            push!(s, collect(keys(screen.keydict)))
         elseif action == GLFW.RELEASE
-            buttonreleased 	= screen.inputs[:buttonreleased]
-            push!(buttonreleased, buttonI)
-            keyset = setdiff(keyset,buttonI)
+            push!(screen.inputs[:buttonreleased], buttonI)
+            @assert haskey(screen.keydict, buttonI) "released $buttonI, without it being pressed. Something's fishy with the Event system"
+            delete!(screen.keydict, buttonI)
         elseif action == GLFW.REPEAT
-            push!(keyset, buttonI)
+            push!(s, collect(keys(screen.keydict)))
+        else
+            error("Unrecognized enum value for button press action: $action")
         end
-        keyset = unique(keyset)
-        push!(buttonspressed, keyset)
     end
     return nothing
 end
@@ -423,7 +423,9 @@ function createwindow(name::AbstractString, w, h; debugging = false, windowhints
 
     inputs[:unicodeinput] 			= Signal(Char[])
 
-    inputs[:buttonspressed] 		= Signal(Int[])
+    buttonspressed = Int[]
+    sizehint!(buttonspressed, 10) # make it less suspicable to growing/shrinking
+    inputs[:buttonspressed] 		= Signal(buttonspressed)
     inputs[:buttondown] 			= Signal(0)
     inputs[:buttonreleased] 		= Signal(0)
 
