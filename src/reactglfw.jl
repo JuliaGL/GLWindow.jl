@@ -104,7 +104,7 @@ end
 """
 Check if a Screen is opened.
 """
-Base.isopen(s::Screen) = s.inputs[:open].value
+Base.isopen(s::Screen) = !GLFW.WindowShouldClose(s.nativewindow)
 
 """
 Swap the framebuffers on the Screen.
