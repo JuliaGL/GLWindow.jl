@@ -262,6 +262,7 @@ function key_pressed(window::Window, button::Cint, scancode::Cint, action::Cint,
             push!(screen.inputs[:buttonreleased], buttonI)
             @assert haskey(screen.keydict, buttonI) "released $buttonI, without it being pressed. Something's fishy with the Event system"
             delete!(screen.keydict, buttonI)
+            push!(s, collect(keys(screen.keydict)))
         elseif action == GLFW.REPEAT
             push!(s, collect(keys(screen.keydict)))
         else
