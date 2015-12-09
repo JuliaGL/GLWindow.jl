@@ -7,13 +7,12 @@ end
 
 if !is_ci() # only do test if not CI... this is for automated testing environments which fail for OpenGL stuff, but I'd like to test if at least including works
 
+GLFW.Init()
 window = createwindow("test", 500,500)
 
-while isopen(window)
+swapbuffers(window)
 
-	swapbuffers(window)
-
-	pollevents(window)
-end
+pollevents(window)
 
 end
+println("success")
