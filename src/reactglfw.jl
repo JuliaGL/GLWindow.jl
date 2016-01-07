@@ -214,9 +214,9 @@ end
 
 
 import Base.(==)
-Base.hash(x::Window, h::UInt64)    = hash(x.ref, h)
-Base.isequal(a::Window, b::Window) = isequal(a.ref, b.ref)
-==(a::Window, b::Window) 	       = a.ref == b.ref
+Base.hash(x::Window, h::UInt64)    = hash(x.handle, h)
+Base.isequal(a::Window, b::Window) = isequal(a.handle, b.handle)
+==(a::Window, b::Window) 	       = a.handle == b.handle
 
 function update(window::Window, key::Symbol, value; keepsimilar::Bool = false)
     if haskey(WINDOW_TO_SCREEN_DICT, window)
@@ -291,9 +291,9 @@ function mouse_clicked(window::Window, button::Cint, action::Cint, mods::Cint)
     return nothing
 end
 
-function unicode_input(window::Window, c::Cuint)
-    update(window, :unicodeinput, [Char(c)], keepsimilar = true)
-    update(window, :unicodeinput, Char[], 	 keepsimilar = true)
+function unicode_input(window::Window, c::Char)
+    update(window, :unicodeinput, Char[c], keepsimilar = true)
+    update(window, :unicodeinput, Char[],  keepsimilar = true)
     return nothing
 end
 
@@ -301,8 +301,8 @@ function cursor_position(window::Window, x::Cdouble, y::Cdouble)
     update(window, :mouseposition_glfw_coordinates, Vec{2, Float64}(x, y))
     return nothing
 end
-function hasfocus(window::Window, focus::Cint)
-    update(window, :hasfocus, focus==GL_TRUE)
+function hasfocus(window::Window, focus::Bool)
+    update(window, :hasfocus, focus)
     return nothing
 end
 function scroll(window::Window, xoffset::Cdouble, yoffset::Cdouble)
@@ -313,8 +313,8 @@ function scroll(window::Window, xoffset::Cdouble, yoffset::Cdouble)
     push!(screen.inputs[:scroll_y], Float64(0))
     return nothing
 end
-function entered_window(window::Window, entered::Cint)
-    update(window, :insidewindow, entered == 1)
+function entered_window(window::Window, entered::Bool)
+    update(window, :insidewindow, entered)
     return nothing
 end
 
