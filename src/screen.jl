@@ -174,7 +174,7 @@ function corrected_coordinates(
     Vec(mouse_position[1], window_size.value[2] - mouse_position[2])
 end
 
-funcion standard_callbacks()
+function standard_callbacks()
     Function[
         window_close,
         window_size,
@@ -191,9 +191,31 @@ funcion standard_callbacks()
     ]
 end
 
-function createwindow(name::AbstractString, w, h; debugging = false, windowhints=[(GLFW.SAMPLES, 4)])
-    for elem in windowhints
-        GLFW.WindowHint(elem...)
+
+function standard_context_hints(major, minor)
+    # this is spaar...Modern OpenGL !!!!
+    major >= 3 && error("OpenGL major needs to be at least 3.0. Given: $major")
+    profile = minor >= 2 ? GLFW.OPENGL_CORE_PROFILE : GLFW.OPENGL_ANY_PROFILE
+    [
+        (GLFW.CONTEXT_VERSION_MAJOR, major),
+        (GLFW.CONTEXT_VERSION_MINOR, minor),
+        (GLFW.OPENGL_FORWARD_COMPAT, GL_TRUE),
+        (GLFW.OPENGL_PROFILE, profile)
+    ]
+end
+
+function createwindow(
+        name::AbstractString, w, h;
+        debugging = false,
+        major = 3,
+        minor = 2,# this is what GLVisualize needs to offer all features
+        windowhints = [(GLFW.SAMPLES, 4)],
+        contexthints = standard_context_hints(major, minor),
+        callbacks = standard_callbacks()
+    )
+    for (wh, ch) in zip(windowhints,contexthints)
+        GLFW.WindowHint(wh...)
+        GLFW.WindowHint(ch...)
     end
     @osx_only begin
         if debugging
@@ -201,22 +223,20 @@ function createwindow(name::AbstractString, w, h; debugging = false, windowhints
             debugging = false
         end
     end
-
-    GLFW.WindowHint(GLFW.CONTEXT_VERSION_MAJOR, 3)
-    GLFW.WindowHint(GLFW.CONTEXT_VERSION_MINOR, 3)
-    GLFW.WindowHint(GLFW.OPENGL_FORWARD_COMPAT, GL_TRUE)
-    GLFW.WindowHint(GLFW.OPENGL_PROFILE, GLFW.OPENGL_CORE_PROFILE)
     GLFW.WindowHint(GLFW.OPENGL_DEBUG_CONTEXT, Cint(debugging))
 
     window = GLFW.CreateWindow(w, h, name)
     GLFW.MakeContextCurrent(window)
     GLFW.ShowWindow(window)
+
     if debugging
         glDebugMessageCallbackARB(_openglerrorcallback, C_NULL)
     end
 
+    signal_dict = register_callbacks(window, callbacks)
 
-    glViewport(0, 0, fwidth, fheight)
+    # seems to be necessary to set this as early as possible
+    glViewport(0, 0, signal_dict[:framebuffer_size]...)
 
     mouseposition = const_lift(corrected_coordinates,
         Signal(window_size), Signal(framebuffer_width), cursor_position
