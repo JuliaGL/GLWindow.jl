@@ -142,6 +142,9 @@ end
 Takes a screen and registers a list of callback functions.
 Returns a dict{Symbol, Signal}(name_of_callback => signal)
 """
+function register_callbacks(window::GLFW.Window, callbacks::Vector{Function})
+    Dict{Symbol, Any}([symbol(string(f.env.name)) => f(window) for f in callbacks])
+end
 function register_callbacks(window::Screen, callbacks::Vector{Function})
-    [symbol(string(f)) => f(window.nativewindow) for f in callbacks]
+    register_callbacks(window.nativewindow, callbacks)
 end

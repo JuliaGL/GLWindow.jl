@@ -31,29 +31,6 @@ function isoutside(screens_mpos)
     true
 end
 
-immutable MonitorProperties
-    name::ASCIIString
-    isprimary::Bool
-    position::Vec{2, Int}
-    physicalsize::Vec{2, Int}
-    videomode::GLFW.VidMode
-    videomode_supported::Vector{GLFW.VidMode}
-    dpi::Vec{2, Float64}
-    monitor::Monitor
-end
-
-function MonitorProperties(monitor::Monitor)
-    name 		 = GLFW.GetMonitorName(monitor)
-    isprimary 	 = GLFW.GetPrimaryMonitor() == monitor
-    position	 = Vec{2, Int}(GLFW.GetMonitorPos(monitor)...)
-    physicalsize = Vec{2, Int}(GLFW.GetMonitorPhysicalSize(monitor)...)
-    videomode 	 = GLFW.GetVideoMode(monitor)
-
-    dpi			 = Vec(videomode.width * 25.4, videomode.height * 25.4) ./ Vec{2, Float64}(physicalsize)
-    videomode_supported = GLFW.GetVideoModes(monitor)
-
-    MonitorProperties(name, isprimary, position, physicalsize, videomode, videomode_supported, dpi, monitor)
-end
 
 function primarymonitorresolution()
     props = MonitorProperties(GLFW.GetPrimaryMonitor())

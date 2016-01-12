@@ -6,13 +6,21 @@ using GLAbstraction
 using GLFW
 using Reactive
 using GeometryTypes
+using ColorTypes
+using FixedPointNumbers
+using FixedSizeArrays
 using Compat
 
 import GLFW.Window
 import GLFW.Monitor
 import GLAbstraction.render
 
-include("reactglfw.jl")
+include("types.jl")
+include("core.jl")
+include("events.jl")
+include("callbacks.jl")
+include("render.jl")
+include("screen.jl")
 
 export createwindow
 export swapbuffers
@@ -32,8 +40,10 @@ export Screen
 export primarymonitorresolution
 
 function __init__()
-    global WINDOW_TO_SCREEN_DICT = Dict{Window, Screen}()
-    global GLFW_SCREEN_STACK     = Screen[]
+    @async while true
+        GLFW.PollEvents()
+        yield()
+    end
 end
 
 

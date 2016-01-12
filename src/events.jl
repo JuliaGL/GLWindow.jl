@@ -59,6 +59,7 @@ immutable SelectionID{T} <: FixedVectorNoTuple{2, T}
 end
 
 begin
+
 const selection_data = Array(SelectionID{UInt16}, 1, 1)
 const old_mouse_position = Vec(0., 0.)
 global update_selectionqueries
@@ -78,6 +79,7 @@ function push_selectionqueries!(
         old_mouse_position = mouse_position
     end
 end
+
 end
 
 
@@ -149,7 +151,6 @@ function dragged_on(robj::RenderObject, button::MouseButton, window::Screen)
     )
     droprepeats(const_lift(getindex, tmp_signal, 1:2))
 end
-
 
 
 """

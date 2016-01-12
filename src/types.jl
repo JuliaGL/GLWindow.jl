@@ -48,3 +48,91 @@ function resizebuffers(window_size, framebuffer::GLFramebuffer)
     end
     nothing
 end
+
+
+immutable MonitorProperties
+    name::ASCIIString
+    isprimary::Bool
+    position::Vec{2, Int}
+    physicalsize::Vec{2, Int}
+    videomode::GLFW.VidMode
+    videomode_supported::Vector{GLFW.VidMode}
+    dpi::Vec{2, Float64}
+    monitor::Monitor
+end
+
+function MonitorProperties(monitor::Monitor)
+    name 		 = GLFW.GetMonitorName(monitor)
+    isprimary 	 = GLFW.GetPrimaryMonitor() == monitor
+    position	 = Vec{2, Int}(GLFW.GetMonitorPos(monitor)...)
+    physicalsize = Vec{2, Int}(GLFW.GetMonitorPhysicalSize(monitor)...)
+    videomode 	 = GLFW.GetVideoMode(monitor)
+
+    dpi			 = Vec(videomode.width * 25.4, videomode.height * 25.4) ./ Vec{2, Float64}(physicalsize)
+    videomode_supported = GLFW.GetVideoModes(monitor)
+
+    MonitorProperties(name, isprimary, position, physicalsize, videomode, videomode_supported, dpi, monitor)
+end
+
+type Screen
+    id 		 	::Symbol
+    area 		::Signal{SimpleRectangle{Int}}
+    parent 		::Screen
+    children 	::Vector{Screen}
+    inputs 		::Dict{Symbol, Any}
+    renderlist 	::Vector{RenderObject}
+
+
+    hidden 		::Signal{Bool}
+    hasfocus 	::Signal{Bool}
+
+    cameras 	::Dict{Symbol, Any}
+    nativewindow::Window
+    transparent ::Signal{Bool}
+    keydict     ::Dict{Int, Bool}
+
+    function Screen(
+            name::Symbol,
+            area,
+            parent 		::Screen,
+            children 	::Vector{Screen},
+            inputs 		::Dict{Symbol, Any},
+            renderlist 	::Vector{RenderObject},
+
+            hidden 		::Signal{Bool},
+            hasfocus 	::Signal{Bool},
+            cameras 	::Dict{Symbol, Any},
+            nativewindow::Window,
+            transparent = Signal(false)
+        )
+        global SCREEN_ID_COUNTER
+        new(
+            name,
+            area, parent, children, inputs, renderlist,
+            hidden, hasfocus, cameras, nativewindow, transparent, Dict{Int, Bool}()
+        )
+    end
+
+    function Screen(
+            name,
+            area,
+            children 	 ::Vector{Screen},
+            inputs 		 ::Dict{Symbol, Any},
+            renderlist 	 ::Vector{RenderObject},
+
+            hidden  	 ::Signal{Bool},
+            hasfocus 	 ::Signal{Bool},
+            cameras 	 ::Dict{Symbol, Any},
+            nativewindow ::Window,
+            transparent = Signal(false)
+        )
+        parent = new()
+        global SCREEN_ID_COUNTER
+        new(
+            name,
+            area, parent, children, inputs,
+            renderlist, hidden, hasfocus,
+            cameras, nativewindow, transparent, Dict{Int, Bool}()
+        )
+    end
+end

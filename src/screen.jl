@@ -1,67 +1,3 @@
-SCREEN_ID_COUNTER = 1
-type Screen
-    id 		 	::Symbol
-    area 		::Signal{SimpleRectangle{Int}}
-    parent 		::Screen
-    children 	::Vector{Screen}
-    inputs 		::Dict{Symbol, Any}
-    renderlist 	::Vector{RenderObject}
-
-
-    hidden 		::Signal{Bool}
-    hasfocus 	::Signal{Bool}
-
-    cameras 	::Dict{Symbol, Any}
-    nativewindow::Window
-    transparent ::Signal{Bool}
-    keydict     ::Dict{Int, Bool}
-
-    function Screen(
-            name::Symbol,
-            area,
-            parent 		::Screen,
-            children 	::Vector{Screen},
-            inputs 		::Dict{Symbol, Any},
-            renderlist 	::Vector{RenderObject},
-
-            hidden 		::Signal{Bool},
-            hasfocus 	::Signal{Bool},
-            cameras 	::Dict{Symbol, Any},
-            nativewindow::Window,
-            transparent = Signal(false)
-        )
-        global SCREEN_ID_COUNTER
-        new(
-            name,
-            area, parent, children, inputs, renderlist,
-            hidden, hasfocus, cameras, nativewindow, transparent, Dict{Int, Bool}()
-        )
-    end
-
-    function Screen(
-            name = gensym("Screen"),
-            area,
-            children 	 ::Vector{Screen},
-            inputs 		 ::Dict{Symbol, Any},
-            renderlist 	 ::Vector{RenderObject},
-
-            hidden  	 ::Signal{Bool},
-            hasfocus 	 ::Signal{Bool},
-            cameras 	 ::Dict{Symbol, Any},
-            nativewindow ::Window,
-            transparent = Signal(false)
-        )
-        parent = new()
-        global SCREEN_ID_COUNTER
-        new(
-            name,
-            area, parent, children, inputs,
-            renderlist, hidden, hasfocus,
-            cameras, nativewindow, transparent, Dict{Int, Bool}()
-        )
-    end
-end
-
 
 #Screen constructor
 function Screen(
@@ -160,9 +96,9 @@ global const _openglerrorcallback = cfunction(
     (GLenum, GLenum,GLuint, GLenum, GLsizei, Ptr{GLchar}, Ptr{Void})
 )
 
-function scaling_factor(window::Vec{Int}, fb::Vec{2, Int})
+function scaling_factor(window::Vec{2, Int}, fb::Vec{2, Int})
     (window[1] == 0 || window[2] == 0) && return Vec{2, Float64}(1.0)
-    Vec{2, Float64}(fb) ./ Vec{2, Float64}(window.w)
+    Vec{2, Float64}(fb) ./ Vec{2, Float64}(window)
 end
 
 function corrected_coordinates(
@@ -170,8 +106,8 @@ function corrected_coordinates(
         framebuffer_width::Signal{Vec{2,Int}},
         mouse_position::Vec{2,Float64}
     )
-    scaling_factor = scaling_factor(window_size.value, framebuffer_width.value)
-    Vec(mouse_position[1], window_size.value[2] - mouse_position[2])
+    s = scaling_factor(window_size.value, framebuffer_width.value)
+    Vec(mouse_position[1], window_size.value[2] - mouse_position[2]) .* s
 end
 
 function standard_callbacks()
@@ -191,10 +127,16 @@ function standard_callbacks()
     ]
 end
 
-
+"""
+Tries to create sensible context hints!
+Taken from lessons learned at:
+[GLFW](http://www.glfw.org/docs/latest/window.html)
+"""
 function standard_context_hints(major, minor)
     # this is spaar...Modern OpenGL !!!!
-    major >= 3 && error("OpenGL major needs to be at least 3.0. Given: $major")
+    major < 3 && error("OpenGL major needs to be at least 3.0. Given: $major")
+    # core profile is only supported for OpenGL 3.2+ (and a must for OSX, so
+    # for the sake of homogenity, we make it a must for all!)
     profile = minor >= 2 ? GLFW.OPENGL_CORE_PROFILE : GLFW.OPENGL_ANY_PROFILE
     [
         (GLFW.CONTEXT_VERSION_MAJOR, major),
@@ -203,7 +145,9 @@ function standard_context_hints(major, minor)
         (GLFW.OPENGL_PROFILE, profile)
     ]
 end
-
+function SimpleRectangle{T}(position::Vec{2,T}, width::Vec{2,T})
+    SimpleRectangle{T}(position..., width...)
+end
 function createwindow(
         name::AbstractString, w, h;
         debugging = false,
@@ -213,10 +157,11 @@ function createwindow(
         contexthints = standard_context_hints(major, minor),
         callbacks = standard_callbacks()
     )
-    for (wh, ch) in zip(windowhints,contexthints)
+    for (wh, ch) in zip(windowhints, contexthints)
         GLFW.WindowHint(wh...)
         GLFW.WindowHint(ch...)
     end
+
     @osx_only begin
         if debugging
             warn("OpenGL debug message callback not available on osx")
@@ -225,30 +170,32 @@ function createwindow(
     end
     GLFW.WindowHint(GLFW.OPENGL_DEBUG_CONTEXT, Cint(debugging))
 
-    window = GLFW.CreateWindow(w, h, name)
+    window = GLFW.CreateWindow(w, h, utf8(name))
     GLFW.MakeContextCurrent(window)
     GLFW.ShowWindow(window)
 
-    if debugging
-        glDebugMessageCallbackARB(_openglerrorcallback, C_NULL)
-    end
+    debugging && glDebugMessageCallbackARB(_openglerrorcallback, C_NULL)
 
     signal_dict = register_callbacks(window, callbacks)
-
+    @materialize window_position, window_size, framebuffer_size, cursor_position, hasfocus = signal_dict
+    window_area = map(SimpleRectangle,
+        window_position,
+        window_size
+    )
     # seems to be necessary to set this as early as possible
-    glViewport(0, 0, signal_dict[:framebuffer_size]...)
+    glViewport(0, 0, framebuffer_size.value...)
 
     mouseposition = const_lift(corrected_coordinates,
-        Signal(window_size), Signal(framebuffer_width), cursor_position
+        Signal(window_size), Signal(framebuffer_size), cursor_position
     )
 
     buttonspressed = Int[]
     sizehint!(buttonspressed, 10) # make it less suspicable to growing/shrinking
 
-    screen = Screen(
-        inputs[:window_size], children, inputs,
-        RenderObject[], Signal(false), inputs[:hasfocus],
-        Dict(:perspective=>pcamera, :orthographic_pixel=>pocamera),
+    screen = Screen(symbol(name),
+        window_area, Screen[], signal_dict,
+        RenderObject[], Signal(false), hasfocus,
+        Dict{Symbol, Any}(),
         window
     )
     screen
