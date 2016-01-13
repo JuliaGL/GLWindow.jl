@@ -1,3 +1,25 @@
+function openglerrorcallback(
+        source::GLenum, typ::GLenum,
+        id::GLuint, severity::GLenum,
+        length::GLsizei, message::Ptr{GLchar},
+        userParam::Ptr{Void}
+    )
+    errormessage = """
+         ________________________________________________________________
+        |
+        | OpenGL Error!
+        | source: $(GLENUM(source).name) :: type: $(GLENUM(typ).name)
+        |  $(ascii(bytestring(message, length)))
+        |________________________________________________________________
+    """
+    output = typ == GL_DEBUG_TYPE_ERROR ? error : info
+    output(errormessage)
+    nothing
+end
+global const _openglerrorcallback = cfunction(
+    openglerrorcallback, Void,
+    (GLenum, GLenum,GLuint, GLenum, GLsizei, Ptr{GLchar}, Ptr{Void})
+)
 
 #Screen constructor
 function Screen(
@@ -52,49 +74,6 @@ function Screen(
     push!(parent.children, screen)
     screen
 end
-
-function GLAbstraction.render(x::Screen, parent::Screen=x, context=x.area.value)
-    if x.inputs[:open].value
-        sa    = x.area.value
-        sa    = SimpleRectangle(context.x+sa.x, context.y+sa.y, sa.w, sa.h) # bring back to absolute values
-        pa    = context
-        sa_pa = intersect(pa, sa)
-        if sa_pa != SimpleRectangle{Int}(0,0,0,0) # if it is in the parent area
-            glEnable(GL_SCISSOR_TEST)
-            glScissor(sa_pa)
-            glViewport(sa)
-            x.transparent.value || glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-            render(x.renderlist)
-            for screen in x.children; render(screen, x, sa); end
-        end
-    end
-end
-
-
-
-
-function openglerrorcallback(
-        source::GLenum, typ::GLenum,
-        id::GLuint, severity::GLenum,
-        length::GLsizei, message::Ptr{GLchar},
-        userParam::Ptr{Void}
-    )
-    errormessage = """
-         ________________________________________________________________
-        |
-        | OpenGL Error!
-        | source: $(GLENUM(source).name) :: type: $(GLENUM(typ).name)
-        |  $(ascii(bytestring(message, length)))
-        |________________________________________________________________
-    """
-    output = typ == GL_DEBUG_TYPE_ERROR ? error : info
-    output(errormessage)
-    nothing
-end
-global const _openglerrorcallback = cfunction(
-    openglerrorcallback, Void,
-    (GLenum, GLenum,GLuint, GLenum, GLsizei, Ptr{GLchar}, Ptr{Void})
-)
 
 function scaling_factor(window::Vec{2, Int}, fb::Vec{2, Int})
     (window[1] == 0 || window[2] == 0) && return Vec{2, Float64}(1.0)
