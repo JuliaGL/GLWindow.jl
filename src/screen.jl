@@ -21,22 +21,23 @@ global const _openglerrorcallback = cfunction(
     (GLenum, GLenum,GLuint, GLenum, GLsizei, Ptr{GLchar}, Ptr{Void})
 )
 
+
 #Screen constructor
 function Screen(
         parent::Screen;
-        name = gensym("Screen"),
+        name = gensym(parent.name),
         area 				      		 = parent.area,
         children::Vector{Screen}  		 = Screen[],
         inputs::Dict{Symbol, Any} 		 = parent.inputs,
         renderlist::Vector{RenderObject} = RenderObject[],
 
         hidden::Signal{Bool}   			 = parent.hidden,
-        hasfocus::Signal{Bool} 			 = parent.hasfocus,
 
-        nativewindow::Window 			 = parent.nativewindow,
+        glcontext::GLContext 			 = parent.glcontext,
         position 					     = Vec3f0(2),
         lookat 					     	 = Vec3f0(0),
         transparent                      = Signal(false)
+        color                            = RGBA{Float32}(1,1,1,1)
     )
 
     pintersect = const_lift(intersect, const_lift(zeroposition, parent.area), area)
@@ -67,19 +68,27 @@ function Screen(
     pcamera = PerspectiveCamera(camera_input, position, lookat)
     screen  = Screen(name,
         area, parent, children, new_input,
-        renderlist, hidden, hasfocus,
+        renderlist, hidden, color,
         Dict(:perspective=>pcamera, :orthographic_pixel=>ocamera),
-        nativewindow,transparent
+        glcontext
     )
     push!(parent.children, screen)
     screen
 end
 
+"""
+On OSX retina screens, the window size is different from the 
+pixel size of the actual framebuffer. With this function we 
+can find out the scaling factor.
+"""
 function scaling_factor(window::Vec{2, Int}, fb::Vec{2, Int})
     (window[1] == 0 || window[2] == 0) && return Vec{2, Float64}(1.0)
     Vec{2, Float64}(fb) ./ Vec{2, Float64}(window)
 end
 
+"""
+Correct OSX scaling issue and move the 0,0 coordinate to left bottom.
+"""
 function corrected_coordinates(
         window_size::Signal{Vec{2,Int}},
         framebuffer_width::Signal{Vec{2,Int}},
@@ -115,7 +124,7 @@ function standard_context_hints(major, minor)
     # this is spaar...Modern OpenGL !!!!
     major < 3 && error("OpenGL major needs to be at least 3.0. Given: $major")
     # core profile is only supported for OpenGL 3.2+ (and a must for OSX, so
-    # for the sake of homogenity, we make it a must for all!)
+    # for the sake of homogenity, we try to default to it for everyone!)
     profile = minor >= 2 ? GLFW.OPENGL_CORE_PROFILE : GLFW.OPENGL_ANY_PROFILE
     [
         (GLFW.CONTEXT_VERSION_MAJOR, major),
@@ -124,17 +133,29 @@ function standard_context_hints(major, minor)
         (GLFW.OPENGL_PROFILE, profile)
     ]
 end
+
+function standard_screen_resolution()
+    w, h = primarymonitorresolution()
+    (div(w,2), div(h,2)) # half of total resolution seems like a good fit!
+end
+
 function SimpleRectangle{T}(position::Vec{2,T}, width::Vec{2,T})
     SimpleRectangle{T}(position..., width...)
 end
-function createwindow(
-        name::AbstractString, w, h;
+
+
+
+
+function createwindow(name::Union{Symbol,AbstractString}="GLWindow";
+        resolution = standard_screen_resolution(),
         debugging = false,
         major = 3,
         minor = 2,# this is what GLVisualize needs to offer all features
         windowhints = [(GLFW.SAMPLES, 4)],
         contexthints = standard_context_hints(major, minor),
-        callbacks = standard_callbacks()
+        callbacks = standard_callbacks(),
+        color = RGBA{Float32}(1,1,1,1)
+
     )
     for (wh, ch) in zip(windowhints, contexthints)
         GLFW.WindowHint(wh...)
@@ -149,54 +170,41 @@ function createwindow(
     end
     GLFW.WindowHint(GLFW.OPENGL_DEBUG_CONTEXT, Cint(debugging))
 
-    window = GLFW.CreateWindow(w, h, utf8(name))
+    window = GLFW.CreateWindow(resolution..., utf8(name))
     GLFW.MakeContextCurrent(window)
     GLFW.ShowWindow(window)
 
     debugging && glDebugMessageCallbackARB(_openglerrorcallback, C_NULL)
 
     signal_dict = register_callbacks(window, callbacks)
-    @materialize window_position, window_size, framebuffer_size, cursor_position, hasfocus = signal_dict
+    @materialize window_position, window_size, hasfocus = signal_dict
+    @materialize framebuffer_size, cursor_position = signal_dict
     window_area = map(SimpleRectangle,
         window_position,
         window_size
     )
     # seems to be necessary to set this as early as possible
-    glViewport(0, 0, framebuffer_size.value...)
+    fb_size = value(framebuffer_size)
+    glViewport(0, 0, fb_size...)
 
-    mouseposition = const_lift(corrected_coordinates,
+    # GLFW uses different coordinates from OpenGL, and on osx, the coordinates
+    # are not in pixel coordinates
+    # we coorect them to always be in pixel coordinates with 0,0 in left down corner
+    signal_dict[:mouseposition] = const_lift(corrected_coordinates,
         Signal(window_size), Signal(framebuffer_size), cursor_position
     )
 
-    buttonspressed = Int[]
-    sizehint!(buttonspressed, 10) # make it less suspicable to growing/shrinking
-
+    # TODO: free when context is freed. We don't have a good abstraction of a gl context yet, though
+    # (It could be shared, so it does not map directly to one screen)
+    map(signal_dict[:window_close]) do _ 
+        GLAbstraction.empty_shader_cache!()
+    end
+    framebuffer = GLFramebuffer()
     screen = Screen(symbol(name),
         window_area, Screen[], signal_dict,
-        RenderObject[], Signal(false), hasfocus,
+        RenderObject[], false, color,
         Dict{Symbol, Any}(),
-        window
+        window, GLFramebuffer(fb_size)
     )
     screen
-end
-
-"""
-Check if a Screen is opened.
-"""
-function Base.isopen(s::Screen)
-    !GLFW.WindowShouldClose(s.nativewindow)
-end
-
-"""
-Swap the framebuffers on the Screen.
-"""
-function swapbuffers(s::Screen)
-    GLFW.SwapBuffers(s.nativewindow)
-end
-
-"""
-Poll events on the screen which will propogate signals through react.
-"""
-function pollevents(::Screen)
-    GLFW.PollEvents()
 end

@@ -1,17 +1,38 @@
 type GLFramebuffer
-    render_framebuffer ::GLuint
-    color              ::Texture{RGBA{UFixed8}, 2}
-    objectid           ::Texture{Vec{2, GLushort}, 2}
-    depth              ::Texture{Float32, 2}
-    postprocess        ::RenderObject
+    id         ::GLuint
+    color      ::Texture{RGBA{UFixed8}, 2}
+    objectid   ::Texture{Vec{2, GLushort}, 2}
+    depth      ::Texture{Float32, 2}
+    postprocess::RenderObject
+end
+Base.size(fb::GLFramebuffer) = size(fb.color) # it's guaranteed, that they all have the same size
+
+"""
+Creates a postprocessing render object.
+This will transfer the pixels from the color texture of the Framebuffer
+to the screen and while at it, it can do some postprocessing (not doing it right now):
+E.g fxaa anti aliasing, color correction etc.
+"""
+function postprocess(color::Texture, framebuffer_size)
+    extract_renderable(assemble_shader(@gen_defaults! Dict{Symbol, Any}() begin
+        main       = nothing
+        model      = eye(Mat4f0)
+        resolution = const_lift(Vec2f0, framebuffer_size)
+        u_texture0 = color
+        primitive  = GLUVMesh2D(SimpleRectangle(-1f0,-1f0, 2f0, 2f0))
+        shader     = GLVisualizeShader("fxaa.vert", "fxaa.frag", "fxaa_combine.frag")
+    end))[]
 end
 
+function attach_framebuffer(t::Texture{2}, attachment) 
+    glFramebufferTexture2D(GL_FRAMEBUFFER, attachment, GL_TEXTURE_2D, t.id, 0)
+end
 
-function GLFramebuffer(framebuffsize::Signal{Vec{2, Int}})
+function GLFramebuffer(fb_size)
     render_framebuffer = glGenFramebuffers()
     glBindFramebuffer(GL_FRAMEBUFFER, render_framebuffer)
 
-    buffersize      = tuple(framebuffsize.value...)
+    buffersize      = tuple(fb_size...)
     color_buffer    = Texture(RGBA{UFixed8},    buffersize, minfilter=:nearest, x_repeat=:clamp_to_edge)
     objectid_buffer = Texture(Vec{2, GLushort}, buffersize, minfilter=:nearest, x_repeat=:clamp_to_edge)
     depth_buffer    = Texture(Float32, buffersize,
@@ -20,31 +41,24 @@ function GLFramebuffer(framebuffsize::Signal{Vec{2, Int}})
         minfilter=:nearest, x_repeat=:clamp_to_edge
     )
 
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, color_buffer.id, 0)
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, objectid_buffer.id, 0)
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,  GL_TEXTURE_2D, depth_buffer.id, 0)
+    attach_framebuffer(color_buffer, GL_COLOR_ATTACHMENT0)
+    attach_framebuffer(objectid_buffer, GL_COLOR_ATTACHMENT1)
+    attach_framebuffer(depth_buffer, GL_DEPTH_ATTACHMENT)
+
     p  = postprocess(color_buffer, framebuffsize)
     fb = GLFramebuffer(render_framebuffer, color_buffer, objectid_buffer, depth_buffer, p)
-    preserve(const_lift(resizebuffers, framebuffsize, fb))
     glBindFramebuffer(GL_FRAMEBUFFER, 0)
     fb
 end
 
-function resizebuffers(window_size, framebuffer::GLFramebuffer)
-    if all(x->x>0, window_size)
-        render_framebuffer = glGenFramebuffers()
-        glBindFramebuffer(GL_FRAMEBUFFER, render_framebuffer)
-        ws = tuple(window_size...)
-        resize_nocopy!(framebuffer.color,    ws)
-        resize_nocopy!(framebuffer.objectid, ws)
-        resize_nocopy!(framebuffer.depth,    ws)
-
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, framebuffer.color.id, 0)
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, framebuffer.objectid.id, 0)
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,  GL_TEXTURE_2D, framebuffer.depth.id, 0)
-
+function Base.resize!(fb::GLFramebuffer, window_size)
+    ws = tuple(window_size...)
+    if ws!=size(fb) && all(x->x>0, window_size)
+        glBindFramebuffer(GL_FRAMEBUFFER, fb.id)
+        for field in (:color, :object_id, :depth)
+            resize_nocopy!(fb.(field), ws)
+        end
         glBindFramebuffer(GL_FRAMEBUFFER, 0)
-        framebuffer.render_framebuffer = render_framebuffer
     end
     nothing
 end
@@ -74,65 +88,94 @@ function MonitorProperties(monitor::Monitor)
     MonitorProperties(name, isprimary, position, physicalsize, videomode, videomode_supported, dpi, monitor)
 end
 
+immutable GLContext
+    window::GLFW.Window
+    framebuffer::GLFramebuffer
+end
+
+
+
 type Screen
-    id 		 	::Symbol
+    name 		::Symbol
     area 		::Signal{SimpleRectangle{Int}}
     parent 		::Screen
     children 	::Vector{Screen}
     inputs 		::Dict{Symbol, Any}
     renderlist 	::Vector{RenderObject}
 
-
-    hidden 		::Signal{Bool}
-    hasfocus 	::Signal{Bool}
+    hidden 		::Bool
+    color       ::Signal{RGBA{Float32}}
 
     cameras 	::Dict{Symbol, Any}
-    nativewindow::Window
-    transparent ::Signal{Bool}
-    keydict     ::Dict{Int, Bool}
+
+    glcontext   ::GLContext
 
     function Screen(
-            name::Symbol,
-            area,
+            name        ::Symbol,
+            area        ::Signal{SimpleRectangle{Int}},
             parent 		::Screen,
             children 	::Vector{Screen},
             inputs 		::Dict{Symbol, Any},
             renderlist 	::Vector{RenderObject},
-
-            hidden 		::Signal{Bool},
-            hasfocus 	::Signal{Bool},
+            hidden 		::Bool,
+            color       ::Colorant
             cameras 	::Dict{Symbol, Any},
-            nativewindow::Window,
-            transparent = Signal(false)
+            window      ::Window,
+            framebuffer ::GLFramebuffer
         )
-        global SCREEN_ID_COUNTER
         new(
-            name,
-            area, parent, children, inputs, renderlist,
-            hidden, hasfocus, cameras, nativewindow, transparent, Dict{Int, Bool}()
+            name, area, parent, 
+            children, inputs, renderlist,
+            hidden, color, cameras, 
+            GLContext(window, framebuffer)
         )
     end
 
     function Screen(
-            name,
-            area,
-            children 	 ::Vector{Screen},
-            inputs 		 ::Dict{Symbol, Any},
-            renderlist 	 ::Vector{RenderObject},
-
-            hidden  	 ::Signal{Bool},
-            hasfocus 	 ::Signal{Bool},
-            cameras 	 ::Dict{Symbol, Any},
-            nativewindow ::Window,
-            transparent = Signal(false)
+            name        ::Symbol,
+            area        ::Signal{SimpleRectangle{Int}},
+            children    ::Vector{Screen},
+            inputs      ::Dict{Symbol, Any},
+            renderlist  ::Vector{RenderObject},
+            hidden      ::Bool,
+            color       ::Colorant
+            cameras     ::Dict{Symbol, Any},
+            window      ::Window,
+            framebuffer ::GLFramebuffer
         )
         parent = new()
-        global SCREEN_ID_COUNTER
         new(
-            name,
-            area, parent, children, inputs,
-            renderlist, hidden, hasfocus,
-            cameras, nativewindow, transparent, Dict{Int, Bool}()
+            name, area, parent, 
+            children, inputs, renderlist,
+            hidden, color, cameras, 
+            GLContext(window, framebuffer)
         )
     end
+end
+
+
+width(s::Screen) = widths(s.area.value)
+ishidden(s::Screen) = s.hidden.value
+framebuffer(s::Screen) = s.glcontext.framebuffer
+nativewindow(s::Screen) = s.glcontext.window
+
+"""
+Check if a Screen is opened.
+"""
+function Base.isopen(s::Screen)
+    !GLFW.WindowShouldClose(nativewindow(s))
+end
+
+"""
+Swap the framebuffers on the Screen.
+"""
+function swapbuffers(s::Screen)
+    GLFW.SwapBuffers(nativewindow(s))
+end
+
+"""
+Poll events on the screen which will propogate signals through react.
+"""
+function pollevents(::Screen)
+    GLFW.PollEvents()
 end

@@ -1,51 +1,97 @@
 
-"""
-Calculates mouse drag and supplies ID
-"""
-function to_mousedragg_id(t0, mouse_down1, mouseposition1, objectid)
-    mouse_down0, draggstart, objectidstart, mouseposition0, objectid0 = t0
-    if !mouse_down0 && mouse_down1
-        return (mouse_down1, mouseposition1, objectid, mouseposition1, objectid)
-    elseif mouse_down0 && mouse_down1
-        return (mouse_down1, draggstart, objectidstart, mouseposition1, objectid)
-    end
-    (false, Vec2f0(0), Vec(0,0), Vec2f0(0), Vec(0,0))
+function mouse_dragg(v0, mouse_pressed)
+    startpoint, diff = v0
+    isreleased, isdown, ispressed, position = mouse_pressed
+    isdown && return (position, position*0)
+    ispressed && return (startpoint, startpoint-position)
+    isreleased && return (startpoint*0, startpoint*0)
 end
 
-function diff_mouse(mouse_down_draggstart_mouseposition)
-    mouse_down, draggstart, objectid_start, mouseposition, objectid_end = mouse_down_draggstart_mouseposition
-    (draggstart - mouseposition, objectid_start, objectid_end)
-end
-function mousedragdiff_objectid(inputs, mouse_hover)
-    @materialize mousebuttonspressed, mousereleased, mouseposition = inputs
-    mousedown      = const_lift(isnotempty, mousebuttonspressed)
-    mousedraggdiff = const_lift(diff_mouse,
-        foldp(to_mousedragg_id, (false, Vec2f0(0), Vec(0,0), Vec2f0(0), Vec(0,0)),
-            mousedown, mouseposition, mouse_hover
-        )
-    )
-    return filterwhen(mousedown, (Vec2f0(0), Vec(0,0), Vec(0,0)), mousedraggdiff)
+function mousedragg_objectid(mouse_dragg, mouse_hover)
+    map(mouse_dragg) do dragg
+        value(mouse_hover), dragg
+    end
 end
 
 function to_arrow_symbol(button_set)
-    GLFW.KEY_RIGHT in button_set && return :right
-    GLFW.KEY_LEFT  in button_set && return :left
-    GLFW.KEY_DOWN  in button_set && return :down
-    GLFW.KEY_UP    in button_set && return :up
+    for b in button_set
+        GLFW.KEY_RIGHT == b && return :right
+        GLFW.KEY_LEFT  == b && return :left
+        GLFW.KEY_DOWN  == b && return :down
+        GLFW.KEY_UP    == b && return :up
+    end
     return :nothing
 end
 
 function add_complex_signals(screen, selection)
-    mouse_hover = const_lift(first, selection[:mouse_hover])
+    no_scancode = map(remove_scancode, screen.inputs[:keyboard_buttons])
+    button_s = merge(
+        button_signals(no_scancode, :button),
+        button_signals(screen.inputs[:mouse_buttons], :mouse_button)
+    )
 
-    mousedragdiff_id = mousedragdiff_objectid(screen.inputs, mouse_hover)
+    mousedragdiff_id = mousedragg_objectid(screen.inputs, screen.framebuffer.hover)
     selection        = foldp(drag2selectionrange, 0:0, mousedragdiff_id)
     arrow_navigation = const_lift(to_arrow_symbol, screen.inputs[:buttonspressed])
+    merge!(
+        screen.inputs, 
+        Dict{Symbol, Any}(
+            :mouse_hover         => mouse_hover,
+            :mousedragg_objectid => mousedragdiff_id,
+            :selection           => selection,
+            :arrow_navigation    => arrow_navigation
+        ),
+        button_s
+    )
+    
+end
 
-    screen.inputs[:mouse_hover]             = mouse_hover
-    screen.inputs[:mousedragdiff_objectid]  = mousedragdiff_id
-    screen.inputs[:selection]               = selection
-    screen.inputs[:arrow_navigation]        = arrow_navigation
+
+"""
+Builds a Set of keys, accounting for released and pressed keys
+"""
+function currently_pressed_keys(v0::IntSet, button_action_mods)
+    button, action, mods = button_action_mods
+    if button != GLFW.KEY_UNKNOWN
+        if action == GLFW.PRESS
+            push!(v0, button)
+        elseif action == GLFW.RELEASE
+            delete!(v0, button)
+        elseif action == GLFW.REPEAT
+            # nothing needs to be done, besides returning the same set of keys
+        else
+            error("Unrecognized enum value for GLFW button press action: $action")
+        end
+    end
+    return v0
+end
+
+function remove_scancode(button_scancode_action_mods)
+    button, scancode, action, mods = button_scancode_action_mods
+    button, action, mods
+end
+isreleased(button) = button[2] == GLFW.RELEASE
+isdown(button) = button[2] == GLFW.PRESS
+
+"""
+Creates high level signals from the raw GLFW button signals.
+Returns a dictionary with button released and down signals.
+It also creates a signal, which is the set of all currently pressed buttons.
+`name` is used to name the dictionary keys.
+`buttons` is a tuple of (button, action, mods)::NTuple{3, Int}
+"""
+function button_signals(buttons::Signal{NTuple{3, Int}}, name::Symbol)
+    keyset = IntSet()
+    sizehint!(keyset, 10) # make it less suspicable to growing/shrinking
+    released = filter(isreleased, buttons.value, buttons)
+    down     = filter(isdown, buttons.value, buttons)
+    Dict{Symbol, Any}(
+        symbol("$(name)_released") => map(first, released),
+        symbol("$(name)_down")     => map(first, down),
+        symbol("$(name)s_pressed") => foldp(
+            currently_pressed_keys, keyset, buttons
+        )
+    )
 end
 
 """
@@ -54,20 +100,21 @@ object id + plus an arbitrary index into the framebuffer.
 The index can be used for e.g. instanced geometries.
 """
 immutable SelectionID{T} <: FixedVectorNoTuple{2, T}
-    objectid::T
+    id::T
     index::T
 end
 
 begin
+global push_selectionqueries!
 
 const selection_data = Array(SelectionID{UInt16}, 1, 1)
-const old_mouse_position = Vec(0., 0.)
-global update_selectionqueries
+const old_mouse_position = Array(Vec{2, Float64}, 1)
+
 function push_selectionqueries!(
         objectid_buffer, mouse_position,
         window_size, selection_signal
     )
-    if old_mouse_position != mouse_position
+    if old_mouse_position[] != mouse_position
         glReadBuffer(GL_COLOR_ATTACHMENT1)
         x,y = Vec{2, Int}(map(floor, mouse_position))
         w,h = window_size
@@ -76,7 +123,7 @@ function push_selectionqueries!(
             val = convert(Matrix{SelectionID{Int}}, selection_data)[1,1]
             push!(selection_signal, val)
         end
-        old_mouse_position = mouse_position
+        old_mouse_position[] = mouse_position
     end
 end
 
@@ -96,8 +143,8 @@ function drag2selectionrange(v0, selection)
             return min(id_start[2],current_id[2]):max(id_start[2],current_id[2])
         end
     else # if mouse did not move while dragging, make a single point selection
-        if current_id[1] == id_start[1]
-            return current_id[2]:0 # this is the type stable way of indicating, that the selection is between currend_index
+        if current_id.id == id_start.id
+            return current_id.index:0 # this is the type stable way of indicating, that the selection is between currend_index
         end
     end
     v0
@@ -110,12 +157,12 @@ one that consists of the object clicked on and another argument indicating that 
 """
 function clicked(robj::RenderObject, button::MouseButton, window::Screen)
     @materialize mouse_hover, mousebuttonspressed = window.inputs
-    leftclicked = const_lift(mouse_hover, mousebuttonspressed) do mh, mbp
-        mh[1] == robj.id && mbp == Int[button]
+    clicked_on = const_lift(mouse_hover, mousebuttonspressed) do mh, mbp
+        mh.id == robj.id && in(button, mbp)
     end
-    clicked_on_obj = keepwhen(leftclicked, false, leftclicked)
-    clicked_on_obj = const_lift((mh, x)->(x,robj,mh), mouse_hover, leftclicked)
-    leftclicked, clicked_on_obj
+    clicked_on_obj = keepwhen(clicked_on, false, clicked_on)
+    clicked_on_obj = const_lift((mh, x)->(x,robj,mh), mouse_hover, clicked_on)
+    clicked_on, clicked_on_obj
 end
 
 is_same_id(id, robj) = id[1] == robj.id
@@ -171,9 +218,9 @@ function doubleclick(mouseclick::Signal{Vector{MouseButton}}, threshold::Real)
 end
 
 screenshot(window; path="screenshot.png", channel=:color) =
-   save(path, screenbuffer(window, channel=channel), true)
+   save(path, screenbuffer(window, channel), true)
 
-function screenbuffer(window; channel=:color)
+function screenbuffer(window, channel=:color)
     fb = window.framebuffer
     channels = fieldnames(fb)[2:end]
     if channel in channels

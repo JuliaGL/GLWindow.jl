@@ -1,21 +1,23 @@
-function renderloop_inner(screen, framebuffer, selectionquery, selection, postprocess_robj)
+function renderloop_inner(screen)
+    fb = framebuffer(screen)
     yield()
-    prepare(framebuffer)
+    resize!(fb, width(screen))
+    prepare(fb)
     render(screen)
+    display(fb, screen)
     #Read all the selection queries
     push_selectionqueries!(framebuffer.objectid, screen, screen.area.value)
 
     swapbuffers(screen)
-    pollevents(screen)
 end
 
-function renderloop(screen, selectionquery, selection, postprocess_robj, renderloop_callback)
-    framebuffer = screen.inputs[:framebuffer]
-    objectid_buffer = screen.inputs[:framebuffer]
+"""
+Blocking renderloop
+"""
+function renderloop(screen::Screen)
     while isopen(screen)
-        renderloop_inner(screen, framebuffer, selectionquery, selection, postprocess_robj)
+        renderloop_inner(screen)
     end
-    GLAbstraction.empty_shader_cache!()
 end
 
 function prepare(fb::GLFramebuffer)
@@ -29,21 +31,27 @@ function display(fb::GLFramebuffer, screen)
     glBindFramebuffer(GL_FRAMEBUFFER, 0)
     glViewport(screen.area.value)
     glClear(GL_COLOR_BUFFER_BIT)
-    render(postprocess_robj)
+    render(fb.postprocess)
 end
+
 function GLAbstraction.render(x::Screen, parent::Screen=x, context=x.area.value)
-    if x.inputs[:open].value
-        sa    = x.area.value
+    if isopen(x) && !ishidden(x)
+        sa    = value(x.area)
         sa    = SimpleRectangle(context.x+sa.x, context.y+sa.y, sa.w, sa.h) # bring back to absolute values
         pa    = context
-        sa_pa = intersect(pa, sa)
+        sa_pa = intersect(pa, sa) # intersection with parent
         if sa_pa != SimpleRectangle{Int}(0,0,0,0) # if it is in the parent area
             glEnable(GL_SCISSOR_TEST)
             glScissor(sa_pa)
             glViewport(sa)
-            x.transparent.value || glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+            if alpha(x.color) > 0
+                glClearColor(x.color...)
+                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+            end
             render(x.renderlist)
-            for screen in x.children; render(screen, x, sa); end
+            for screen in x.children
+                render(screen, x, sa)
+            end
         end
     end
 end
