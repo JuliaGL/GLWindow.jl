@@ -36,7 +36,6 @@ function Screen(
         glcontext::GLContext 			 = parent.glcontext,
         position 					     = Vec3f0(2),
         lookat 					     	 = Vec3f0(0),
-        transparent                      = Signal(false)
         color                            = RGBA{Float32}(1,1,1,1)
     )
 
@@ -100,13 +99,13 @@ end
 
 function standard_callbacks()
     Function[
-        window_close,
+        open,
         window_size,
         window_position,
-        key_pressed,
+        keyboard_buttons,
+        mouse_buttons,
         dropped_files,
         framebuffer_size,
-        mouse_clicked,
         unicode_input,
         cursor_position,
         scroll,
@@ -145,21 +144,35 @@ end
 
 
 
+const standard_window_hints = [
+    (GLFW.SAMPLES,      0),
+    (GLFW.DEPTH_BITS,   0),
+    
+    (GLFW.ALPHA_BITS,   8),
+    (GLFW.RED_BITS,     8),
+    (GLFW.GREEN_BITS,   8),
+    (GLFW.BLUE_BITS,    8),
+
+    (GLFW.STENCIL_BITS, 0),
+    (GLFW.AUX_BUFFERS,  0)
+]
 
 function createwindow(name::Union{Symbol,AbstractString}="GLWindow";
         resolution = standard_screen_resolution(),
         debugging = false,
         major = 3,
-        minor = 2,# this is what GLVisualize needs to offer all features
-        windowhints = [(GLFW.SAMPLES, 4)],
+        minor = 3,# this is what GLVisualize needs to offer all features
+        windowhints = standard_window_hints,
         contexthints = standard_context_hints(major, minor),
         callbacks = standard_callbacks(),
         color = RGBA{Float32}(1,1,1,1)
 
     )
-    for (wh, ch) in zip(windowhints, contexthints)
-        GLFW.WindowHint(wh...)
+    for ch in contexthints
         GLFW.WindowHint(ch...)
+    end
+    for wh in windowhints
+        GLFW.WindowHint(wh...)
     end
 
     @osx_only begin
@@ -183,6 +196,7 @@ function createwindow(name::Union{Symbol,AbstractString}="GLWindow";
         window_position,
         window_size
     )
+    signal_dict[:window_area] = window_area
     # seems to be necessary to set this as early as possible
     fb_size = value(framebuffer_size)
     glViewport(0, 0, fb_size...)
@@ -193,18 +207,21 @@ function createwindow(name::Union{Symbol,AbstractString}="GLWindow";
     signal_dict[:mouseposition] = const_lift(corrected_coordinates,
         Signal(window_size), Signal(framebuffer_size), cursor_position
     )
-
+    signal_dict[:mouse2id] = Signal(SelectionID{Int}(-1, -1))
     # TODO: free when context is freed. We don't have a good abstraction of a gl context yet, though
     # (It could be shared, so it does not map directly to one screen)
-    map(signal_dict[:window_close]) do _ 
-        GLAbstraction.empty_shader_cache!()
-    end
-    framebuffer = GLFramebuffer()
+    preserve(map(signal_dict[:window_open]) do open
+        if !open
+            GLAbstraction.empty_shader_cache!()
+            GLFW.DestroyWindow(window)
+        end
+    end)
+
     screen = Screen(symbol(name),
         window_area, Screen[], signal_dict,
         RenderObject[], false, color,
         Dict{Symbol, Any}(),
-        window, GLFramebuffer(fb_size)
+        window, GLFramebuffer(framebuffer_size)
     )
     screen
 end

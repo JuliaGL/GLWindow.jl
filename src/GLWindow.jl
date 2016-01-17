@@ -10,6 +10,7 @@ using ColorTypes
 using FixedPointNumbers
 using FixedSizeArrays
 using Compat
+using FileIO
 
 import GLFW.Window
 import GLFW.Monitor

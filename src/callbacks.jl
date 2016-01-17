@@ -3,8 +3,10 @@ Returns a signal, which is true as long as the window is open.
 returns `Signal{Bool}`
 [GLFW Docs](http://www.glfw.org/docs/latest/group__window.html#gaade9264e79fae52bdb78e2df11ee8d6a)
 """
-function window_close(window, s::Signal{Bool}=Signal(true))
-    GLFW.SetWindowCloseCallback(window, (window,) -> push!(s, false))
+function window_open(window, s::Signal{Bool}=Signal(true))
+    GLFW.SetWindowCloseCallback(window, (window,) -> begin
+        push!(s, false)
+    end)
     s
 end
 """
@@ -15,7 +17,7 @@ returns `Signal{Vec{2,Int}}`
 """
 function window_size(window, s::Signal{Vec{2,Int}}=Signal(Vec{2,Int}( GLFW.GetWindowSize(window))))
     GLFW.SetWindowSizeCallback(window, (window, w::Cint, h::Cint,) -> begin
-        push!(s, Vec(Int(w), Int(h)))
+        push!(s, Vec{2,Int}(w, h))
     end)
     s
 end
@@ -46,10 +48,22 @@ Registers a callback for the mouse buttons + modifiers
 returns `Signal{NTuple{4, Int}}`
 [GLFW Docs](http://www.glfw.org/docs/latest/group__input.html#ga1e008c7a8751cea648c8f42cc91104cf)
 """
-function key_pressed(window, s::Signal{NTuple{4, Int}}=Signal((0,0,0,0)))
+function keyboard_buttons(window, s::Signal{NTuple{4, Int}}=Signal((0,0,0,0)))
     keydict = Dict{Int, Bool}()
     GLFW.SetKeyCallback(window, (window, button::Cint, scancode::Cint, action::Cint, mods::Cint) -> begin
         push!(s, (Int(button), Int(scancode), Int(action), Int(mods)))
+    end)
+    s
+end
+"""
+Registers a callback for the mouse buttons + modifiers
+returns an `Signal{NTuple{3, Int}}`,
+containing the pressed button the action and modifiers.
+[GLFW Docs](http://www.glfw.org/docs/latest/group__input.html#ga1e008c7a8751cea648c8f42cc91104cf)
+"""
+function mouse_buttons(window, s::Signal{NTuple{3, Int}}=Signal((0,0,0)))
+    GLFW.SetMouseButtonCallback(window, (window, button::Cint, action::Cint, mods::Cint) -> begin
+        push!(s, (Int(button), Int(action), Int(mods)))
     end)
     s
 end
@@ -64,18 +78,7 @@ function dropped_files(window, s::Signal{Vector{UTF8String}}=Signal(UTF8String[]
     end)
     s
 end
-"""
-Registers a callback for the mouse buttons + modifiers
-returns an `Signal{NTuple{3, Int}}`,
-containing the pressed button the action and modifiers.
-[GLFW Docs](http://www.glfw.org/docs/latest/group__input.html#ga1e008c7a8751cea648c8f42cc91104cf)
-"""
-function mouse_clicked(window, s::Signal{NTuple{3, Int}}=Signal((0,0,0)))
-    GLFW.SetMouseButtonCallback(window, (window, button::Cint, action::Cint, mods::Cint) -> begin
-        push!(s, (Int(button), Int(action), Int(mods)))
-    end)
-    s
-end
+
 """
 Registers a callback for keyboard unicode input.
 returns an `Signal{Vector{Char}}`,

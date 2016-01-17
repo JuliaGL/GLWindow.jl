@@ -9,7 +9,7 @@ function Base.show(io::IO, m::MonitorProperties)
     println(io, "dpi: ", m.dpi[1], "x", m.dpi[2])
 end
 function Base.show(io::IO, m::Screen)
-    println(io, "name: ", m.id)
+    println(io, "name: ", m.name)
     println(io, "children: ", length(m.children))
     println(io, "Inputs:")
     map(m.inputs) do x
@@ -37,10 +37,7 @@ function primarymonitorresolution()
     w,h = props.videomode.width, props.videomode.height
     Vec(Int(w),Int(h))
 end
-function default_screen_resolution()
-    w, h = primarymonitorresolution()
-    (div(w,2), div(h,2)) # half of total resolution seems like a good fit!
-end
+
 
 zeroposition{T}(r::SimpleRectangle{T}) = SimpleRectangle(zero(T), zero(T), r.w, r.h)
 export zeroposition

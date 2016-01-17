@@ -4,9 +4,10 @@ function renderloop_inner(screen)
     resize!(fb, width(screen))
     prepare(fb)
     render(screen)
-    display(fb, screen)
     #Read all the selection queries
-    push_selectionqueries!(framebuffer.objectid, screen, screen.area.value)
+    push_selectionqueries!(screen)
+
+    display(fb, screen)
 
     swapbuffers(screen)
 end
@@ -22,7 +23,7 @@ end
 
 function prepare(fb::GLFramebuffer)
     glDisable(GL_SCISSOR_TEST)
-    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.render_framebuffer)
+    glBindFramebuffer(GL_FRAMEBUFFER, fb.id)
     glDrawBuffers(2, [GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1])
 end
 
@@ -45,7 +46,7 @@ function GLAbstraction.render(x::Screen, parent::Screen=x, context=x.area.value)
             glScissor(sa_pa)
             glViewport(sa)
             if alpha(x.color) > 0
-                glClearColor(x.color...)
+                glClearColor(red(x.color), green(x.color), blue(x.color), alpha(x.color))
                 glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
             end
             render(x.renderlist)

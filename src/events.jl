@@ -1,3 +1,4 @@
+pressed(keys, key) = key in keys
 
 function mouse_dragg(v0, mouse_pressed)
     startpoint, diff = v0
@@ -5,6 +6,36 @@ function mouse_dragg(v0, mouse_pressed)
     isdown && return (position, position*0)
     ispressed && return (startpoint, startpoint-position)
     isreleased && return (startpoint*0, startpoint*0)
+end
+
+mouse_dragg(v0, args) = mouse_dragg(v0..., args...)
+function mouse_dragg(
+        started::Bool, startpoint, 
+        ispressed::Bool, position, start_condition::Bool
+    )
+    if !started && ispressed && start_condition
+        return (true, position, position*0)
+    end
+    started && ispressed && return (true, startpoint, startpoint-position)
+    (false, startpoint*0, startpoint*0)
+end
+
+function dragged(mouseposition, key_pressed, start_condition=true)
+    v0 = (false, Vec2f0(0), Vec2f0(0))
+    args = const_lift(tuple, key_pressed, mouseposition, start_condition)
+    dragg_sig = map(mouse_dragg, v0, args)
+    is_dragg = map(first, dragg_sig)
+    dragg_diff = map(last, dragg_sig)
+    keepwhen(is_dragg, Vec2f0(0), dragg_diff)
+end
+
+function dragged(mouse, key, start_condition=true)
+    v0 = (false, Vec2f0(0), Vec2f0(0), value(sample_signal))
+    args = map(tuple, key_pressed, mouseposition, start_condition)
+    dragg_sig = map(mouse_dragg, v0, args)
+    is_dragg = map(first, dragg_sig)
+    dragg_diff = map(last, dragg_sig)
+    keepwhen(is_dragg, Vec2f0(0), dragg_diff)
 end
 
 function mousedragg_objectid(mouse_dragg, mouse_hover)
@@ -23,27 +54,26 @@ function to_arrow_symbol(button_set)
     return :nothing
 end
 
-function add_complex_signals(screen, selection)
-    no_scancode = map(remove_scancode, screen.inputs[:keyboard_buttons])
+function add_complex_signals!(screen)
+    @materialize keyboard_buttons, mouse_buttons = screen.inputs
+    no_scancode = map(remove_scancode, keyboard_buttons)
     button_s = merge(
         button_signals(no_scancode, :button),
-        button_signals(screen.inputs[:mouse_buttons], :mouse_button)
+        button_signals(mouse_buttons, :mouse_button)
     )
-
-    mousedragdiff_id = mousedragg_objectid(screen.inputs, screen.framebuffer.hover)
-    selection        = foldp(drag2selectionrange, 0:0, mousedragdiff_id)
-    arrow_navigation = const_lift(to_arrow_symbol, screen.inputs[:buttonspressed])
+    mousedragdiff_id = mousedragg_objectid(screen.inputs, mouse2id(screen))
+    #selection        = foldp(drag2selectionrange, 0:0, mousedragdiff_id)
+    arrow_navigation = const_lift(to_arrow_symbol, keyboard_buttons)
     merge!(
         screen.inputs, 
         Dict{Symbol, Any}(
-            :mouse_hover         => mouse_hover,
             :mousedragg_objectid => mousedragdiff_id,
-            :selection           => selection,
+           # :selection           => selection,
             :arrow_navigation    => arrow_navigation
         ),
         button_s
     )
-    
+    screen
 end
 
 
@@ -99,7 +129,7 @@ Selection of random objects on the screen is realized by rendering an
 object id + plus an arbitrary index into the framebuffer.
 The index can be used for e.g. instanced geometries.
 """
-immutable SelectionID{T} <: FixedVectorNoTuple{2, T}
+immutable SelectionID{T <: Integer} <: FixedVectorNoTuple{2, T}
     id::T
     index::T
 end
@@ -110,16 +140,17 @@ global push_selectionqueries!
 const selection_data = Array(SelectionID{UInt16}, 1, 1)
 const old_mouse_position = Array(Vec{2, Float64}, 1)
 
-function push_selectionqueries!(
-        objectid_buffer, mouse_position,
-        window_size, selection_signal
-    )
+function push_selectionqueries!(screen)
+    mouse_position   = value(mouseposition(screen))
+    selection_signal = mouse2id(screen)
+    window_size      = width(screen)
+    buff  = framebuffer(screen).objectid
     if old_mouse_position[] != mouse_position
         glReadBuffer(GL_COLOR_ATTACHMENT1)
         x,y = Vec{2, Int}(map(floor, mouse_position))
         w,h = window_size
         if x > 0 && y > 0 && x <= w && y <= h
-            glReadPixels(x, y, 1, 1, objectid_buffer.format, objectid_buffer.pixeltype, selection_data)
+            glReadPixels(x, y, 1, 1, buff.format, buff.pixeltype, selection_data)
             val = convert(Matrix{SelectionID{Int}}, selection_data)[1,1]
             push!(selection_signal, val)
         end
@@ -130,7 +161,6 @@ end
 end
 
 
-@enum MouseButton MOUSE_LEFT MOUSE_MIDDLE MOUSE_RIGHT
 
 
 """
@@ -231,3 +261,5 @@ function screenbuffer(window, channel=:color)
 end
 
 export screenshot, screenbuffer
+
+

@@ -1,3 +1,5 @@
+@enum MouseButton MOUSE_LEFT MOUSE_MIDDLE MOUSE_RIGHT
+
 type GLFramebuffer
     id         ::GLuint
     color      ::Texture{RGBA{UFixed8}, 2}
@@ -7,6 +9,7 @@ type GLFramebuffer
 end
 Base.size(fb::GLFramebuffer) = size(fb.color) # it's guaranteed, that they all have the same size
 
+loadshader(name) = load(joinpath(dirname(@__FILE__), name))
 """
 Creates a postprocessing render object.
 This will transfer the pixels from the color texture of the Framebuffer
@@ -14,17 +17,23 @@ to the screen and while at it, it can do some postprocessing (not doing it right
 E.g fxaa anti aliasing, color correction etc.
 """
 function postprocess(color::Texture, framebuffer_size)
-    extract_renderable(assemble_shader(@gen_defaults! Dict{Symbol, Any}() begin
+    data = Dict{Symbol, Any}() 
+    @gen_defaults! data begin
         main       = nothing
         model      = eye(Mat4f0)
         resolution = const_lift(Vec2f0, framebuffer_size)
         u_texture0 = color
-        primitive  = GLUVMesh2D(SimpleRectangle(-1f0,-1f0, 2f0, 2f0))
-        shader     = GLVisualizeShader("fxaa.vert", "fxaa.frag", "fxaa_combine.frag")
-    end))[]
+        primitive::GLUVMesh2D = SimpleRectangle(-1f0,-1f0, 2f0, 2f0)
+        shader     = LazyShader(
+            loadshader("fxaa.vert"), 
+            loadshader("fxaa.frag"), 
+            loadshader("fxaa_combine.frag")
+        )
+    end
+    std_renderobject(data, shader, Signal(AABB{Float32}(primitive)))
 end
 
-function attach_framebuffer(t::Texture{2}, attachment) 
+function attach_framebuffer{T}(t::Texture{T, 2}, attachment) 
     glFramebufferTexture2D(GL_FRAMEBUFFER, attachment, GL_TEXTURE_2D, t.id, 0)
 end
 
@@ -32,7 +41,7 @@ function GLFramebuffer(fb_size)
     render_framebuffer = glGenFramebuffers()
     glBindFramebuffer(GL_FRAMEBUFFER, render_framebuffer)
 
-    buffersize      = tuple(fb_size...)
+    buffersize      = tuple(value(fb_size)...)
     color_buffer    = Texture(RGBA{UFixed8},    buffersize, minfilter=:nearest, x_repeat=:clamp_to_edge)
     objectid_buffer = Texture(Vec{2, GLushort}, buffersize, minfilter=:nearest, x_repeat=:clamp_to_edge)
     depth_buffer    = Texture(Float32, buffersize,
@@ -45,7 +54,7 @@ function GLFramebuffer(fb_size)
     attach_framebuffer(objectid_buffer, GL_COLOR_ATTACHMENT1)
     attach_framebuffer(depth_buffer, GL_DEPTH_ATTACHMENT)
 
-    p  = postprocess(color_buffer, framebuffsize)
+    p  = postprocess(color_buffer, fb_size)
     fb = GLFramebuffer(render_framebuffer, color_buffer, objectid_buffer, depth_buffer, p)
     glBindFramebuffer(GL_FRAMEBUFFER, 0)
     fb
@@ -104,7 +113,7 @@ type Screen
     renderlist 	::Vector{RenderObject}
 
     hidden 		::Bool
-    color       ::Signal{RGBA{Float32}}
+    color       ::RGBA{Float32}
 
     cameras 	::Dict{Symbol, Any}
 
@@ -118,7 +127,7 @@ type Screen
             inputs 		::Dict{Symbol, Any},
             renderlist 	::Vector{RenderObject},
             hidden 		::Bool,
-            color       ::Colorant
+            color       ::Colorant,
             cameras 	::Dict{Symbol, Any},
             window      ::Window,
             framebuffer ::GLFramebuffer
@@ -126,7 +135,7 @@ type Screen
         new(
             name, area, parent, 
             children, inputs, renderlist,
-            hidden, color, cameras, 
+            hidden, RGBA{Float32}(color), cameras, 
             GLContext(window, framebuffer)
         )
     end
@@ -138,7 +147,7 @@ type Screen
             inputs      ::Dict{Symbol, Any},
             renderlist  ::Vector{RenderObject},
             hidden      ::Bool,
-            color       ::Colorant
+            color       ::Colorant,
             cameras     ::Dict{Symbol, Any},
             window      ::Window,
             framebuffer ::GLFramebuffer
@@ -154,8 +163,8 @@ type Screen
 end
 
 
-width(s::Screen) = widths(s.area.value)
-ishidden(s::Screen) = s.hidden.value
+width(s::Screen) = widths(value(s.area))
+ishidden(s::Screen) = s.hidden
 framebuffer(s::Screen) = s.glcontext.framebuffer
 nativewindow(s::Screen) = s.glcontext.window
 
@@ -178,4 +187,11 @@ Poll events on the screen which will propogate signals through react.
 """
 function pollevents(::Screen)
     GLFW.PollEvents()
+end
+
+function mouse2id(s::Screen)
+    s.inputs[:mouse2id]
+end
+function mouseposition(s::Screen)
+    s.inputs[:mouseposition]
 end
