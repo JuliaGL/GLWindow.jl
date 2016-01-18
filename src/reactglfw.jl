@@ -213,11 +213,6 @@ function Base.show(io::IO, m::Screen)
 end
 
 
-import Base.(==)
-Base.hash(x::Window, h::UInt64)    = hash(x.handle, h)
-Base.isequal(a::Window, b::Window) = isequal(a.handle, b.handle)
-==(a::Window, b::Window) 	       = a.handle == b.handle
-
 function update(window::Window, key::Symbol, value; keepsimilar::Bool = false)
     if haskey(WINDOW_TO_SCREEN_DICT, window)
         screen  = WINDOW_TO_SCREEN_DICT[window]
