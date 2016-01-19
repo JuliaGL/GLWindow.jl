@@ -17,8 +17,11 @@ import GLFW.Monitor
 import GLAbstraction.render
 
 include("types.jl")
+
 include("core.jl")
 include("events.jl")
+export pressed, dragged, clicked
+
 include("callbacks.jl")
 include("render.jl")
 include("screen.jl")
@@ -44,6 +47,7 @@ function __init__()
     @async while true
         GLFW.PollEvents()
         yield()
+        sleep(1/60)
     end
 end
 

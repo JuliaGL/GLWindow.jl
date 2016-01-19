@@ -26,19 +26,16 @@ global const _openglerrorcallback = cfunction(
 function Screen(
         parent::Screen;
         name = gensym(parent.name),
-        area 				      		 = parent.area,
-        children::Vector{Screen}  		 = Screen[],
-        inputs::Dict{Symbol, Any} 		 = parent.inputs,
+        area = parent.area,
+        children::Vector{Screen} = Screen[],
+        inputs::Dict{Symbol, Any} = parent.inputs,
         renderlist::Vector{RenderObject} = RenderObject[],
-
-        hidden::Signal{Bool}   			 = parent.hidden,
-
-        glcontext::GLContext 			 = parent.glcontext,
-        position 					     = Vec3f0(2),
-        lookat 					     	 = Vec3f0(0),
-        color                            = RGBA{Float32}(1,1,1,1)
+        hidden::Bool = parent.hidden,
+        glcontext::GLContext = parent.glcontext,
+        position = Vec3f0(2),
+        lookat = Vec3f0(0),
+        color = RGBA{Float32}(1,1,1,1)
     )
-
     pintersect = const_lift(intersect, const_lift(zeroposition, parent.area), area)
 
     #checks if mouse is inside screen and not inside any children
@@ -51,15 +48,13 @@ function Screen(
     # creates signals for the camera, which are only active if mouse is inside screen
     camera_input = merge(inputs, Dict(
         :mouseposition 	=> filterwhen(insidescreen, Vec(0.0, 0.0), relative_mousepos),
-        :scroll_x 		=> filterwhen(insidescreen, 0.0, 			inputs[:scroll_x]),
-        :scroll_y 		=> filterwhen(insidescreen, 0.0, 			inputs[:scroll_y]),
+        :scroll 		=> filterwhen(insidescreen, 0.0, 			inputs[:scroll]),
         :window_size 	=> area
     ))
     new_input = merge(inputs, Dict(
         :mouseinside 	=> insidescreen,
         :mouseposition 	=> relative_mousepos,
-        :scroll_x 		=> inputs[:scroll_x],
-        :scroll_y 		=> inputs[:scroll_y],
+        :scroll 		=> inputs[:scroll],
         :window_size 	=> area
     ))
     # creates cameras for the sceen with the new inputs
@@ -76,8 +71,8 @@ function Screen(
 end
 
 """
-On OSX retina screens, the window size is different from the 
-pixel size of the actual framebuffer. With this function we 
+On OSX retina screens, the window size is different from the
+pixel size of the actual framebuffer. With this function we
 can find out the scaling factor.
 """
 function scaling_factor(window::Vec{2, Int}, fb::Vec{2, Int})
@@ -99,7 +94,7 @@ end
 
 function standard_callbacks()
     Function[
-        open,
+        window_open,
         window_size,
         window_position,
         keyboard_buttons,
@@ -147,7 +142,7 @@ end
 const standard_window_hints = [
     (GLFW.SAMPLES,      0),
     (GLFW.DEPTH_BITS,   0),
-    
+
     (GLFW.ALPHA_BITS,   8),
     (GLFW.RED_BITS,     8),
     (GLFW.GREEN_BITS,   8),
@@ -193,7 +188,7 @@ function createwindow(name::Union{Symbol,AbstractString}="GLWindow";
     @materialize window_position, window_size, hasfocus = signal_dict
     @materialize framebuffer_size, cursor_position = signal_dict
     window_area = map(SimpleRectangle,
-        window_position,
+        Signal(Vec(0,0)),
         window_size
     )
     signal_dict[:window_area] = window_area
@@ -221,7 +216,7 @@ function createwindow(name::Union{Symbol,AbstractString}="GLWindow";
         window_area, Screen[], signal_dict,
         RenderObject[], false, color,
         Dict{Symbol, Any}(),
-        window, GLFramebuffer(framebuffer_size)
+        GLContext(window, GLFramebuffer(framebuffer_size))
     )
     screen
 end

@@ -1,4 +1,3 @@
-@enum MouseButton MOUSE_LEFT MOUSE_MIDDLE MOUSE_RIGHT
 
 type GLFramebuffer
     id         ::GLuint
@@ -17,7 +16,7 @@ to the screen and while at it, it can do some postprocessing (not doing it right
 E.g fxaa anti aliasing, color correction etc.
 """
 function postprocess(color::Texture, framebuffer_size)
-    data = Dict{Symbol, Any}() 
+    data = Dict{Symbol, Any}()
     @gen_defaults! data begin
         main       = nothing
         model      = eye(Mat4f0)
@@ -25,15 +24,15 @@ function postprocess(color::Texture, framebuffer_size)
         u_texture0 = color
         primitive::GLUVMesh2D = SimpleRectangle(-1f0,-1f0, 2f0, 2f0)
         shader     = LazyShader(
-            loadshader("fxaa.vert"), 
-            loadshader("fxaa.frag"), 
+            loadshader("fxaa.vert"),
+            loadshader("fxaa.frag"),
             loadshader("fxaa_combine.frag")
         )
     end
     std_renderobject(data, shader, Signal(AABB{Float32}(primitive)))
 end
 
-function attach_framebuffer{T}(t::Texture{T, 2}, attachment) 
+function attach_framebuffer{T}(t::Texture{T, 2}, attachment)
     glFramebufferTexture2D(GL_FRAMEBUFFER, attachment, GL_TEXTURE_2D, t.id, 0)
 end
 
@@ -129,14 +128,13 @@ type Screen
             hidden 		::Bool,
             color       ::Colorant,
             cameras 	::Dict{Symbol, Any},
-            window      ::Window,
-            framebuffer ::GLFramebuffer
+            context     ::GLContext
         )
         new(
-            name, area, parent, 
+            name, area, parent,
             children, inputs, renderlist,
-            hidden, RGBA{Float32}(color), cameras, 
-            GLContext(window, framebuffer)
+            hidden, RGBA{Float32}(color), cameras,
+            context
         )
     end
 
@@ -149,15 +147,14 @@ type Screen
             hidden      ::Bool,
             color       ::Colorant,
             cameras     ::Dict{Symbol, Any},
-            window      ::Window,
-            framebuffer ::GLFramebuffer
+            context     ::GLContext
         )
         parent = new()
         new(
-            name, area, parent, 
+            name, area, parent,
             children, inputs, renderlist,
-            hidden, color, cameras, 
-            GLContext(window, framebuffer)
+            hidden, color, cameras,
+            context
         )
     end
 end

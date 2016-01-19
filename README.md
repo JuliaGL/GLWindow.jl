@@ -15,11 +15,11 @@ Screen.inputs = [
 
 		:unicodeinput					=> Input('0'),
 
-		:buttonspressed					=> Signal(IntSet()),# Set of pressed keyboard keys
+		:buttonspressed					=> Signal(Set{Int}()),# Set of pressed keyboard keys
 		:buttondown						=> Signal(0),
 		:buttonreleased					=> Signal(0),
 
-		:mousebuttonspressed			=> Signal(IntSet()), # Set of pressed mousekeys
+		:mousebuttonspressed			=> Signal(Set{Int}()), # Set of pressed mousekeys
 		:mousedown						=> Signal(0),
 		:mousereleased					=> Signal(0),
 
