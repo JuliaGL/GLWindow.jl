@@ -48,14 +48,14 @@ function Screen(
     # creates signals for the camera, which are only active if mouse is inside screen
     camera_input = merge(inputs, Dict(
         :mouseposition 	=> filterwhen(insidescreen, Vec(0.0, 0.0), relative_mousepos),
-        :scroll 		=> filterwhen(insidescreen, 0.0, 			inputs[:scroll]),
-        :window_size 	=> area
+        :scroll 		=> filterwhen(insidescreen, 0.0, inputs[:scroll]),
+        :window_area 	=> area
     ))
     new_input = merge(inputs, Dict(
         :mouseinside 	=> insidescreen,
         :mouseposition 	=> relative_mousepos,
         :scroll 		=> inputs[:scroll],
-        :window_size 	=> area
+        :window_area 	=> area
     ))
     # creates cameras for the sceen with the new inputs
     ocamera = OrthographicPixelCamera(camera_input)
@@ -189,7 +189,7 @@ function createwindow(name::Union{Symbol,AbstractString}="GLWindow";
     @materialize framebuffer_size, cursor_position = signal_dict
     window_area = map(SimpleRectangle,
         Signal(Vec(0,0)),
-        window_size
+        framebuffer_size
     )
     signal_dict[:window_area] = window_area
     # seems to be necessary to set this as early as possible

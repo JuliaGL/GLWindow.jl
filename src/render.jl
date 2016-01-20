@@ -1,8 +1,11 @@
 function renderloop_inner(screen)
     fb = framebuffer(screen)
+    wh = width(screen)
     yield()
-    resize!(fb, width(screen))
+    resize!(fb, wh)
     prepare(fb)
+    glViewport(0,0, wh...)
+
     render(screen)
     #Read all the selection queries
     push_selectionqueries!(screen)
@@ -31,7 +34,7 @@ end
 function display(fb::GLFramebuffer, screen)
     glDisable(GL_SCISSOR_TEST)
     glBindFramebuffer(GL_FRAMEBUFFER, 0)
-    glViewport(0,0,width(screen)...)
+    glViewport(0,0, width(screen)...)
     glClear(GL_COLOR_BUFFER_BIT)
     render(fb.postprocess)
 end
