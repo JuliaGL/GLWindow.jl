@@ -93,6 +93,9 @@ The index can be used for e.g. instanced geometries.
 immutable SelectionID{T <: Integer} <: FixedVectorNoTuple{2, T}
     id::T
     index::T
+    function SelectionID(args::NTuple{2, T})
+        new{T}(args[1], args[2])
+    end
 end
 
 begin
