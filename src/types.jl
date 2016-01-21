@@ -61,11 +61,11 @@ end
 function Base.resize!(fb::GLFramebuffer, window_size)
     ws = tuple(window_size...)
     if ws!=size(fb) && all(x->x>0, window_size)
+        buffersize = tuple(window_size...)
         if OS_NAME == :Linux
             render_framebuffer = glGenFramebuffers()
             glBindFramebuffer(GL_FRAMEBUFFER, render_framebuffer)
 
-            buffersize      = tuple(window_size...)
             color_buffer    = Texture(RGBA{UFixed8},    buffersize, minfilter=:nearest, x_repeat=:clamp_to_edge)
             objectid_buffer = Texture(Vec{2, GLushort}, buffersize, minfilter=:nearest, x_repeat=:clamp_to_edge)
             depth_buffer    = Texture(Float32, buffersize,
@@ -85,9 +85,9 @@ function Base.resize!(fb::GLFramebuffer, window_size)
             fb.postprocess = p
             glBindFramebuffer(GL_FRAMEBUFFER, 0)
         else
-            resize_nocopy!(fb.color, window_size)
-            resize_nocopy!(fb.objectid, window_size)
-            resize_nocopy!(fb.depth, window_size)
+            resize_nocopy!(fb.color, buffersize)
+            resize_nocopy!(fb.objectid, buffersize)
+            resize_nocopy!(fb.depth, buffersize)
         end
     end
     nothing
