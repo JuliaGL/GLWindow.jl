@@ -36,15 +36,22 @@ function Screen(
         lookat = Vec3f0(0),
         color = RGBA{Float32}(1,1,1,1)
     )
-    pintersect = const_lift(intersect, const_lift(zeroposition, parent.area), area)
-
-    #checks if mouse is inside screen and not inside any children
+    pintersect = const_lift(x->intersect(zeroposition(value(parent.area)), x), area)
     relative_mousepos = const_lift(inputs[:mouseposition]) do mpos
-        Point{2, Float64}(mpos[1]-pintersect.value.x, mpos[2]-pintersect.value.y)
+        Point{2, Float64}(mpos[1]-value(pintersect).x, mpos[2]-value(pintersect).y)
     end
-    insidescreen = const_lift(relative_mousepos) do mpos
-        mpos[1]>=0 && mpos[2]>=0 && mpos[1] <= pintersect.value.w && mpos[2] <= pintersect.value.h && !any(screen->isinside(screen.area.value, mpos...), children)
-    end
+    #checks if mouse is inside screen and not inside any children
+
+    insidescreen = droprepeats(const_lift(relative_mousepos) do mpos
+        for screen in children
+            # if inside any children, it's not inside screen
+            isinside(value(screen.area), mpos...) && return false
+        end
+        (mpos[1] < 0 || mpos[2] < 0) && return false
+        mpos[1] > value(pintersect).w && return false
+        mpos[2] > value(pintersect).h && return false
+        true
+    end)
     # creates signals for the camera, which are only active if mouse is inside screen
     camera_input = merge(inputs, Dict(
         :mouseposition 	=> filterwhen(insidescreen, Vec(0.0, 0.0), relative_mousepos),

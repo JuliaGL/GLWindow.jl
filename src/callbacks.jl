@@ -113,6 +113,7 @@ which is an x and y offset.
 function scroll(window, s::Signal{Vec{2, Float64}}=Signal(Vec(0.,0.)))
     GLFW.SetScrollCallback(window, (window, xoffset::Cdouble, yoffset::Cdouble) -> begin
         push!(s, Vec{2, Float64}(xoffset, yoffset))
+        push!(s, Vec{2, Float64}(0))
     end)
     s
 end
