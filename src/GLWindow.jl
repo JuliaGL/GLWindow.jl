@@ -42,6 +42,7 @@ export Window
 export leftclickdown
 export Screen
 export primarymonitorresolution
+export renderloop
 
 function __init__()
     @async while true
