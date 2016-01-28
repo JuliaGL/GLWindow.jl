@@ -49,10 +49,13 @@ function GLAbstraction.render(x::Screen, parent::Screen=x, context=x.area.value)
             glEnable(GL_SCISSOR_TEST)
             glScissor(sa_pa)
             glViewport(sa)
+            colorbits = GL_DEPTH_BUFFER_BIT
             if alpha(x.color) > 0
                 glClearColor(red(x.color), green(x.color), blue(x.color), alpha(x.color))
-                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+                colorbits = colorbits | GL_COLOR_BUFFER_BIT
             end
+            glClear(colorbits)
+            
             render(x.renderlist)
             for screen in x.children
                 render(screen, x, sa)
