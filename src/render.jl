@@ -1,4 +1,5 @@
 function renderloop_inner(screen)
+    GLFW.PollEvents()
     fb = framebuffer(screen)
     wh = width(screen)
     yield()
@@ -55,7 +56,7 @@ function GLAbstraction.render(x::Screen, parent::Screen=x, context=x.area.value)
                 colorbits = colorbits | GL_COLOR_BUFFER_BIT
             end
             glClear(colorbits)
-            
+
             render(x.renderlist)
             for screen in x.children
                 render(screen, x, sa)

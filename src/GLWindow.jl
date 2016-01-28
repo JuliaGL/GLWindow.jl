@@ -44,13 +44,6 @@ export Screen
 export primarymonitorresolution
 export renderloop
 
-function __init__()
-    @async while true
-        GLFW.PollEvents()
-        yield()
-        sleep(1/60)
-    end
-end
 
 
 end
