@@ -211,6 +211,7 @@ end
 function mouse2id(s::Screen)
     s.inputs[:mouse2id]
 end
+export mouse2id
 function mouseposition(s::Screen)
     s.inputs[:mouseposition]
 end
