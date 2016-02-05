@@ -1,37 +1,41 @@
-function clear_all!(screen)
-    wh = widths(screen)
+function clear_all!(window)
+    wh = widths(window)
     glViewport(0,0, wh...)
-    fb = framebuffer(screen)
+    fb = framebuffer(window)
     glBindFramebuffer(GL_FRAMEBUFFER, fb.id)
     glDrawBuffers(2, [GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1])
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
     glBindFramebuffer(GL_FRAMEBUFFER, 0)
     glClear(GL_COLOR_BUFFER_BIT)
 end
-function renderloop_inner(screen)
+
+"""
+Renders a single frame of a `window`
+"""
+function render_frame(window)
     GLFW.PollEvents()
-    fb = framebuffer(screen)
-    wh = widths(screen)
+    fb = framebuffer(window)
+    wh = widths(window)
     yield()
     resize!(fb, wh)
     prepare(fb)
     glViewport(0,0, wh...)
 
-    render(screen)
+    render(window)
     #Read all the selection queries
-    push_selectionqueries!(screen)
+    push_selectionqueries!(window)
 
-    display(fb, screen)
+    display(fb, window)
 
-    swapbuffers(screen)
+    swapbuffers(window)
 end
 
 """
 Blocking renderloop
 """
-function renderloop(screen::Screen)
-    while isopen(screen)
-        renderloop_inner(screen)
+function renderloop(window::Screen)
+    while isopen(window)
+        render_frame(window)
     end
 end
 
@@ -42,10 +46,10 @@ function prepare(fb::GLFramebuffer)
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 end
 
-function display(fb::GLFramebuffer, screen)
+function display(fb::GLFramebuffer, window)
     glDisable(GL_SCISSOR_TEST)
     glBindFramebuffer(GL_FRAMEBUFFER, 0)
-    glViewport(0,0, widths(screen)...)
+    glViewport(0,0, widths(window)...)
     glClear(GL_COLOR_BUFFER_BIT)
     render(fb.postprocess)
 end
@@ -68,8 +72,8 @@ function GLAbstraction.render(x::Screen, parent::Screen=x, context=x.area.value)
             glClear(colorbits)
 
             render(x.renderlist)
-            for screen in x.children
-                render(screen, x, sa)
+            for window in x.children
+                render(window, x, sa)
             end
         end
     end

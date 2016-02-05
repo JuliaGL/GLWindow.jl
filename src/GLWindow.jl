@@ -1,4 +1,5 @@
 VERSION >= v"0.4.0-dev+6521" && __precompile__(true)
+
 module GLWindow
 
 using ModernGL
@@ -44,8 +45,11 @@ export leftclickdown
 export Screen
 export primarymonitorresolution
 export renderloop
+export render_frame
 export screenshot
 export screenbuffer
+export zeroposition
+export create_glcontext
 
 
 

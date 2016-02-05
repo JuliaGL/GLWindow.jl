@@ -1,3 +1,7 @@
+
+"""
+Callback which can be used to catch OpenGL errors.
+"""
 function openglerrorcallback(
         source::GLenum, typ::GLenum,
         id::GLuint, severity::GLenum,
@@ -16,13 +20,16 @@ function openglerrorcallback(
     output(errormessage)
     nothing
 end
+
 global const _openglerrorcallback = cfunction(
     openglerrorcallback, Void,
     (GLenum, GLenum,GLuint, GLenum, GLsizei, Ptr{GLchar}, Ptr{Void})
 )
 
 
-#Screen constructor
+"""
+Screen constructor cnstructing a new screen from a parant screen.
+"""
 function Screen(
         parent::Screen;
         name = gensym(parent.name),
@@ -99,6 +106,10 @@ function corrected_coordinates(
     Vec(mouse_position[1], window_size.value[2] - mouse_position[2]) .* s
 end
 
+
+"""
+Standard set of callback functions
+"""
 function standard_callbacks()
     Function[
         window_open,
@@ -135,41 +146,48 @@ function standard_context_hints(major, minor)
     ]
 end
 
+"""
+Takes half the resolution of the primary monitor.
+This should make for sensible defaults!
+"""
 function standard_screen_resolution()
     w, h = primarymonitorresolution()
     (div(w,2), div(h,2)) # half of total resolution seems like a good fit!
 end
 
-function SimpleRectangle{T}(position::Vec{2,T}, width::Vec{2,T})
-    SimpleRectangle{T}(position..., width...)
+
+
+"""
+Standard window hints for creating a plain context without any multisampling
+or extra buffers beside the color buffer
+"""
+function standard_window_hints()
+    [
+        (GLFW.SAMPLES,      0),
+        (GLFW.DEPTH_BITS,   0),
+
+        (GLFW.ALPHA_BITS,   8),
+        (GLFW.RED_BITS,     8),
+        (GLFW.GREEN_BITS,   8),
+        (GLFW.BLUE_BITS,    8),
+
+        (GLFW.STENCIL_BITS, 0),
+        (GLFW.AUX_BUFFERS,  0)
+    ]
 end
-
-
-
-const standard_window_hints = [
-    (GLFW.SAMPLES,      0),
-    (GLFW.DEPTH_BITS,   0),
-
-    (GLFW.ALPHA_BITS,   8),
-    (GLFW.RED_BITS,     8),
-    (GLFW.GREEN_BITS,   8),
-    (GLFW.BLUE_BITS,    8),
-
-    (GLFW.STENCIL_BITS, 0),
-    (GLFW.AUX_BUFFERS,  0)
-]
-
-function createwindow(name::Union{Symbol,AbstractString}="GLWindow";
+"""
+Function to create a pure GLFW OpenGL window
+"""
+function create_glcontext(
+        name = "GLWindow";
         resolution = standard_screen_resolution(),
         debugging = false,
         major = 3,
         minor = 3,# this is what GLVisualize needs to offer all features
-        windowhints = standard_window_hints,
-        contexthints = standard_context_hints(major, minor),
-        callbacks = standard_callbacks(),
-        color = RGBA{Float32}(1,1,1,1)
-
+        windowhints = standard_window_hints(),
+        contexthints = standard_context_hints(major, minor)
     )
+
     for ch in contexthints
         GLFW.WindowHint(ch...)
     end
@@ -190,7 +208,39 @@ function createwindow(name::Union{Symbol,AbstractString}="GLWindow";
     GLFW.ShowWindow(window)
 
     debugging && glDebugMessageCallbackARB(_openglerrorcallback, C_NULL)
+    window
+end
 
+
+"""
+Most basic Screen constructor, which is usually used to create a parent screen.
+It creates an OpenGL context and registeres all the callbacks
+from the kw_arg `callbacks`.
+You can change the OpenGL version with `major` and `minor`.
+Also `windowhints` and `contexthints` can be given.
+You can query the standard context and window hints
+with `GLWindow.standard_context_hints` and `GLWindow.standard_window_hints`.
+Finally you have the kw_args color and resolution. The first sets the background
+color of the window and the other the resolution of the window.
+"""
+function Screen(name = "GLWindow";
+        resolution = standard_screen_resolution(),
+        debugging = false,
+        major = 3,
+        minor = 3,# this is what GLVisualize needs to offer all features
+        windowhints = standard_window_hints(),
+        contexthints = standard_context_hints(major, minor),
+        callbacks = standard_callbacks(),
+        color = RGBA{Float32}(1,1,1,1)
+    )
+    # create glcontext
+    window = create_glcontext(
+        name,
+        resolution=resolution, debugging=debugging,
+        major=major, minor=minor,
+        windowhints=windowhints, contexthints=contexthints
+    )
+    #create standard signals
     signal_dict = register_callbacks(window, callbacks)
     @materialize window_position, window_size, hasfocus = signal_dict
     @materialize framebuffer_size, cursor_position = signal_dict
@@ -228,9 +278,19 @@ function createwindow(name::Union{Symbol,AbstractString}="GLWindow";
     screen
 end
 
+"""
+Function that creates a screenshot from `window` and saves it to `path`.
+You can choose the channel of the framebuffer, which is usually:
+`color`, `depth` and `objectid`
+"""
 screenshot(window; path="screenshot.png", channel=:color) =
    save(path, screenbuffer(window, channel), true)
 
+"""
+Returns the contents of the framebuffer of `window` as a Julia Array.
+You can choose the channel of the framebuffer, which is usually:
+`color`, `depth` and `objectid`
+"""
 function screenbuffer(window, channel=:color)
     fb = framebuffer(window)
     channels = fieldnames(fb)[2:end]
@@ -239,4 +299,44 @@ function screenbuffer(window, channel=:color)
         return rotl90(img)
     end
     error("Channel $channel does not exist. Only these channels are available: $channels")
+end
+
+
+
+widths(s::Screen) = widths(value(s.area))
+ishidden(s::Screen) = s.hidden
+framebuffer(s::Screen) = s.glcontext.framebuffer
+nativewindow(s::Screen) = s.glcontext.window
+
+"""
+Check if a Screen is opened.
+"""
+function Base.isopen(window::Screen)
+    isopen(nativewindow(window))
+end
+function Base.isopen(window::GLFW.Window)
+    !GLFW.WindowShouldClose(window)
+end
+"""
+Swap the framebuffers on the Screen.
+"""
+function swapbuffers(window::Screen)
+    swapbuffers(nativewindow(window))
+end
+function swapbuffers(window::GLFW.Window)
+    GLFW.SwapBuffers(window)
+end
+"""
+Poll events on the screen which will propogate signals through react.
+"""
+function pollevents()
+    GLFW.PollEvents()
+end
+
+function mouse2id(s::Screen)
+    s.inputs[:mouse2id]
+end
+export mouse2id
+function mouseposition(s::Screen)
+    s.inputs[:mouseposition]
 end

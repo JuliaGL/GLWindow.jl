@@ -180,38 +180,3 @@ type Screen
         )
     end
 end
-
-
-widths(s::Screen) = widths(value(s.area))
-ishidden(s::Screen) = s.hidden
-framebuffer(s::Screen) = s.glcontext.framebuffer
-nativewindow(s::Screen) = s.glcontext.window
-
-"""
-Check if a Screen is opened.
-"""
-function Base.isopen(s::Screen)
-    !GLFW.WindowShouldClose(nativewindow(s))
-end
-
-"""
-Swap the framebuffers on the Screen.
-"""
-function swapbuffers(s::Screen)
-    GLFW.SwapBuffers(nativewindow(s))
-end
-
-"""
-Poll events on the screen which will propogate signals through react.
-"""
-function pollevents(::Screen)
-    GLFW.PollEvents()
-end
-
-function mouse2id(s::Screen)
-    s.inputs[:mouse2id]
-end
-export mouse2id
-function mouseposition(s::Screen)
-    s.inputs[:mouseposition]
-end
