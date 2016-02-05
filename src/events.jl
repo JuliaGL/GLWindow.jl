@@ -24,7 +24,7 @@ function add_complex_signals!(screen)
     )
     mousedragdiff_id = mousedragg_objectid(screen.inputs, mouse2id(screen))
     #selection        = foldp(drag2selectionrange, 0:0, mousedragdiff_id)
-    arrow_navigation = const_lift(to_arrow_symbol, keyboard_buttons)
+    arrow_navigation = const_lift(to_arrow_symbol, button_s[:buttons_pressed])
     merge!(
         screen.inputs,
         Dict{Symbol, Any}(
@@ -107,7 +107,7 @@ const old_mouse_position = Array(Vec{2, Float64}, 1)
 function push_selectionqueries!(screen)
     mouse_position   = value(mouseposition(screen))
     selection_signal = mouse2id(screen)
-    window_size      = width(screen)
+    window_size      = widths(screen)
     buff  = framebuffer(screen).objectid
     if old_mouse_position[] != mouse_position
         glReadBuffer(GL_COLOR_ATTACHMENT1)
@@ -128,7 +128,7 @@ screenshot(window; path="screenshot.png", channel=:color) =
    save(path, screenbuffer(window, channel), true)
 
 function screenbuffer(window, channel=:color)
-    fb = window.framebuffer
+    fb = framebuffer(window)
     channels = fieldnames(fb)[2:end]
     if channel in channels
         img = gpu_data(fb.(channel))[window.area.value]

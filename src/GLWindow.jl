@@ -15,6 +15,7 @@ using FileIO
 import GLFW.Window
 import GLFW.Monitor
 import GLAbstraction.render
+import GeometryTypes.widths
 
 include("types.jl")
 

@@ -182,7 +182,7 @@ type Screen
 end
 
 
-width(s::Screen) = widths(value(s.area))
+widths(s::Screen) = widths(value(s.area))
 ishidden(s::Screen) = s.hidden
 framebuffer(s::Screen) = s.glcontext.framebuffer
 nativewindow(s::Screen) = s.glcontext.window
