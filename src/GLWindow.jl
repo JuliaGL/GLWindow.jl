@@ -44,6 +44,8 @@ export leftclickdown
 export Screen
 export primarymonitorresolution
 export renderloop
+export screenshot
+export screenbuffer
 
 
 
