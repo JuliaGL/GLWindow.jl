@@ -77,7 +77,7 @@ function Screen(
     screen  = Screen(name,
         area, parent, children, new_input,
         renderlist, hidden, color,
-        Dict(:perspective=>pcamera, :orthographic_pixel=>ocamera),
+        Dict{Symbol, Any}(:perspective=>pcamera, :orthographic_pixel=>ocamera),
         glcontext
     )
     push!(parent.children, screen)
