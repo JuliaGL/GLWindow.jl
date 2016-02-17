@@ -14,6 +14,7 @@ Renders a single frame of a `window`
 """
 function render_frame(window)
     GLFW.PollEvents()
+    isopen(window) || return nothing
     fb = framebuffer(window)
     wh = widths(window)
     yield()
