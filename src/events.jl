@@ -124,17 +124,5 @@ end
 
 end
 
-screenshot(window; path="screenshot.png", channel=:color) =
-   save(path, screenbuffer(window, channel), true)
-
-function screenbuffer(window, channel=:color)
-    fb = framebuffer(window)
-    channels = fieldnames(fb)[2:end]
-    if channel in channels
-        img = gpu_data(fb.(channel))[window.area.value]
-        return rotl90(img)
-    end
-    error("Channel $channel does not exist. Only these channels are available: $channels")
-end
 
 export screenshot, screenbuffer
