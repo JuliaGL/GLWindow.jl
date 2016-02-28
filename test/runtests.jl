@@ -8,7 +8,7 @@ end
 if !is_ci() # only do test if not CI... this is for automated testing environments which fail for OpenGL stuff, but I'd like to test if at least including works
 
 GLFW.Init()
-window = createwindow("test", 500,500)
+window = Screen("test", resolution=(500,500))
 
 swapbuffers(window)
 
