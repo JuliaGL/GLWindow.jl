@@ -137,7 +137,11 @@ function standard_context_hints(major, minor)
     major < 3 && error("OpenGL major needs to be at least 3.0. Given: $major")
     # core profile is only supported for OpenGL 3.2+ (and a must for OSX, so
     # for the sake of homogenity, we try to default to it for everyone!)
-    profile = minor >= 2 ? GLFW.OPENGL_CORE_PROFILE : GLFW.OPENGL_ANY_PROFILE
+    if (major > 3 || (major == 3 && minor >= 2 ))
+        profile = GLFW.OPENGL_CORE_PROFILE
+    else 
+        profile = GLFW.OPENGL_ANY_PROFILE
+    end
     [
         (GLFW.CONTEXT_VERSION_MAJOR, major),
         (GLFW.CONTEXT_VERSION_MINOR, minor),
