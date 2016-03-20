@@ -9,6 +9,11 @@ end
 Base.size(fb::GLFramebuffer) = size(fb.color) # it's guaranteed, that they all have the same size
 
 loadshader(name) = load(joinpath(dirname(@__FILE__), name))
+function draw_fullscreen(vao_id)
+    glBindVertexArray(vao_id)
+    glDrawArrays(GL_TRIANGLES, 0, 3)
+    glBindVertexArray(0)
+end
 """
 Creates a postprocessing render object.
 This will transfer the pixels from the color texture of the Framebuffer
@@ -16,20 +21,16 @@ to the screen and while at it, it can do some postprocessing (not doing it right
 E.g fxaa anti aliasing, color correction etc.
 """
 function postprocess(color::Texture, framebuffer_size)
-    data = Dict{Symbol, Any}()
-    @gen_defaults! data begin
-        main       = nothing
-        model      = eye(Mat4f0)
-        resolution = const_lift(Vec2f0, framebuffer_size)
-        u_texture0 = color
-        primitive::GLUVMesh2D = SimpleRectangle(-1f0,-1f0, 2f0, 2f0)
-        shader     = LazyShader(
-            loadshader("fxaa.vert"),
-            loadshader("fxaa.frag"),
-            loadshader("fxaa_combine.frag")
-        )
-    end
-    std_renderobject(data, shader, Signal(AABB{Float32}(primitive)))
+    shader = LazyShader(
+        loadshader("fxaa.vert"),
+        loadshader("fxaa_combine.frag")
+    )
+    data = Dict{Symbol, Any}(
+        :color_texture => color
+    )
+    robj = RenderObject(data, shader)
+    postrender!(robj, draw_fullscreen, robj.vertexarray.id)
+    robj
 end
 
 function attach_framebuffer{T}(t::Texture{T, 2}, attachment)
@@ -175,7 +176,7 @@ type Screen
         new(
             name, area, parent,
             children, inputs, renderlist,
-            hidden, color, cameras,
+            hidden, RGBA{Float32}(color), cameras,
             context
         )
     end
