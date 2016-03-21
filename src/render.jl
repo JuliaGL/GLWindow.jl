@@ -50,7 +50,6 @@ function display(fb::GLFramebuffer, window)
     glDisable(GL_SCISSOR_TEST)
     glBindFramebuffer(GL_FRAMEBUFFER, 0)
     glViewport(0,0, widths(window)...)
-    glClear(GL_COLOR_BUFFER_BIT)
     render(fb.postprocess)
 end
 
