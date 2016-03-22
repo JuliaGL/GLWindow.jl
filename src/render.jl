@@ -14,10 +14,12 @@ Renders a single frame of a `window`
 """
 function render_frame(window)
     GLFW.PollEvents()
+    yield()
     isopen(window) || return nothing
+
     fb = framebuffer(window)
     wh = widths(window)
-    yield()
+
     resize!(fb, wh)
     prepare(fb)
     glViewport(0,0, wh...)
@@ -29,6 +31,7 @@ function render_frame(window)
     display(fb, window)
 
     swapbuffers(window)
+    
     yield()
 end
 
