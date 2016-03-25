@@ -1,4 +1,4 @@
-#version 130
+{{GLSL_VERSION}}
 
 in vec2 frag_uv;
 
