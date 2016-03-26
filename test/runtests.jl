@@ -12,7 +12,7 @@ window = Screen("test", resolution=(500,500))
 
 swapbuffers(window)
 
-pollevents(window)
+pollevents()
 
 end
 println("success")
