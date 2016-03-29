@@ -36,7 +36,7 @@ function Screen(
         area = parent.area,
         children::Vector{Screen} = Screen[],
         inputs::Dict{Symbol, Any} = parent.inputs,
-        renderlist::Vector{RenderObject} = RenderObject[],
+        renderlist::Tuple = (),
         hidden::Bool = parent.hidden,
         glcontext::GLContext = parent.glcontext,
         position = Vec3f0(2),
@@ -139,7 +139,7 @@ function standard_context_hints(major, minor)
     # for the sake of homogenity, we try to default to it for everyone!)
     if (major > 3 || (major == 3 && minor >= 2 ))
         profile = GLFW.OPENGL_CORE_PROFILE
-    else 
+    else
         profile = GLFW.OPENGL_ANY_PROFILE
     end
     [
@@ -275,7 +275,7 @@ function Screen(name = "GLWindow";
 
     screen = Screen(symbol(name),
         window_area, Screen[], signal_dict,
-        RenderObject[], false, color,
+        (), false, color,
         Dict{Symbol, Any}(),
         GLContext(window, GLFramebuffer(framebuffer_size))
     )
