@@ -344,3 +344,16 @@ export mouse2id
 function mouseposition(s::Screen)
     s.inputs[:mouseposition]
 end
+"""
+Empties the content of the renderlist
+"""
+function Base.empty!(s::Screen)
+    s.renderlist = ()
+end
+
+"""
+returns a copy of the renderlist
+"""
+function renderlist(s::Screen)
+    vcat(s.renderlist...)
+end

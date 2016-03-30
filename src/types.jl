@@ -133,7 +133,7 @@ type Screen
     parent 		::Screen
     children 	::Vector{Screen}
     inputs 		::Dict{Symbol, Any}
-    renderlist 	::Tuple
+    renderlist 	::Tuple # a tuple of specialized renderlists
 
     hidden 		::Bool
     color       ::RGBA{Float32}
