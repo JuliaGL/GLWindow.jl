@@ -31,7 +31,7 @@ function render_frame(window)
     display(fb, window)
 
     swapbuffers(window)
-    
+
     yield()
 end
 

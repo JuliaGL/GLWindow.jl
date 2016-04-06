@@ -9,6 +9,7 @@ end
 Base.size(fb::GLFramebuffer) = size(fb.color) # it's guaranteed, that they all have the same size
 
 loadshader(name) = load(joinpath(dirname(@__FILE__), name))
+
 function draw_fullscreen(vao_id)
     glBindVertexArray(vao_id)
     glDrawArrays(GL_TRIANGLES, 0, 3)
@@ -28,8 +29,8 @@ function postprocess(color::Texture, framebuffer_size)
     data = Dict{Symbol, Any}(
         :color_texture => color
     )
-    robj = RenderObject(data, shader)
-    postrender!(robj, draw_fullscreen, robj.vertexarray.id)
+    robj = RenderObject(data, shader, EmptyPrerender(), nothing)
+    robj.postrenderfunction = () -> draw_fullscreen(robj.vertexarray.id)
     robj
 end
 
@@ -132,7 +133,7 @@ type Screen
     parent 		::Screen
     children 	::Vector{Screen}
     inputs 		::Dict{Symbol, Any}
-    renderlist 	::Vector{RenderObject}
+    renderlist 	::Tuple # a tuple of specialized renderlists
 
     hidden 		::Bool
     color       ::RGBA{Float32}
@@ -147,7 +148,7 @@ type Screen
             parent 		::Screen,
             children 	::Vector{Screen},
             inputs 		::Dict{Symbol, Any},
-            renderlist 	::Vector{RenderObject},
+            renderlist 	::Tuple,
             hidden 		::Bool,
             color       ::Colorant,
             cameras 	::Dict{Symbol, Any},
@@ -166,7 +167,7 @@ type Screen
             area        ::Signal{SimpleRectangle{Int}},
             children    ::Vector{Screen},
             inputs      ::Dict{Symbol, Any},
-            renderlist  ::Vector{RenderObject},
+            renderlist  ::Tuple,
             hidden      ::Bool,
             color       ::Colorant,
             cameras     ::Dict{Symbol, Any},
