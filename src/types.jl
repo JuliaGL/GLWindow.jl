@@ -96,7 +96,7 @@ end
 
 
 immutable MonitorProperties
-    name::ASCIIString
+    name::UTF8String
     isprimary::Bool
     position::Vec{2, Int}
     physicalsize::Vec{2, Int}
