@@ -209,7 +209,6 @@ function create_glcontext(
 
     window = GLFW.CreateWindow(resolution..., utf8(name))
     GLFW.MakeContextCurrent(window)
-    GLFW.ShowWindow(window)
 
     debugging && glDebugMessageCallbackARB(_openglerrorcallback, C_NULL)
     window
@@ -244,6 +243,8 @@ function Screen(name = "GLWindow";
         major=major, minor=minor,
         windowhints=windowhints, contexthints=contexthints
     )
+    GLFW.ShowWindow(window)
+    
     #create standard signals
     signal_dict = register_callbacks(window, callbacks)
     @materialize window_position, window_size, hasfocus = signal_dict

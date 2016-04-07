@@ -29,7 +29,6 @@ function render_frame(window)
     display(fb, window)
 
     swapbuffers(window)
-
     yield()
 end
 function pollwindow(window)
@@ -38,6 +37,7 @@ function pollwindow(window)
        yield()
        sleep(1/60)
     end
+    Reactive.run_till_now()
 end
 """
 Blocking renderloop
@@ -45,6 +45,7 @@ Blocking renderloop
 function renderloop(window::Screen)
     @async pollwindow(window)
     while isopen(window)
+        GLFW.PollEvents()
         Reactive.run_till_now()
         render_frame(window)
     end
