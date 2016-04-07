@@ -13,8 +13,6 @@ end
 Renders a single frame of a `window`
 """
 function render_frame(window)
-    GLFW.PollEvents()
-    yield()
     isopen(window) || return nothing
 
     fb = framebuffer(window)
@@ -34,12 +32,20 @@ function render_frame(window)
 
     yield()
 end
-
+function pollwindow(window)
+    while isopen(window)
+       GLFW.PollEvents()
+       yield()
+       sleep(1/60)
+    end
+end
 """
 Blocking renderloop
 """
 function renderloop(window::Screen)
+    @async pollwindow(window)
     while isopen(window)
+        Reactive.run_till_now()
         render_frame(window)
     end
 end
