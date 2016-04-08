@@ -37,17 +37,21 @@ function pollwindow(window)
        yield()
        sleep(1/60)
     end
-    Reactive.run_till_now()
 end
 """
 Blocking renderloop
 """
 function renderloop(window::Screen)
+    Reactive.stop_event_loop()
     @async pollwindow(window)
     while isopen(window)
         GLFW.PollEvents()
         Reactive.run_till_now()
         render_frame(window)
+    end
+    yield()
+    if Base.n_avail(Reactive._messages) > 0
+        Reactive.run_till_now()
     end
 end
 
