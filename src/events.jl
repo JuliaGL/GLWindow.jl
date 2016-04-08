@@ -22,13 +22,13 @@ function add_complex_signals!(screen)
         button_signals(no_scancode, :button),
         button_signals(mouse_buttons, :mouse_button)
     )
-    mousedragdiff_id = mousedragg_objectid(screen.inputs, mouse2id(screen))
+    #mousedragdiff_id = mousedragg_objectid(screen.inputs, mouse2id(screen))
     #selection        = foldp(drag2selectionrange, 0:0, mousedragdiff_id)
     arrow_navigation = const_lift(to_arrow_symbol, button_s[:buttons_pressed])
     merge!(
         screen.inputs,
         Dict{Symbol, Any}(
-            :mousedragg_objectid => mousedragdiff_id,
+            #:mousedragg_objectid => mousedragdiff_id,
            # :selection           => selection,
             :arrow_navigation    => arrow_navigation
         ),
