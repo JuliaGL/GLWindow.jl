@@ -244,7 +244,7 @@ function Screen(name = "GLWindow";
         windowhints=windowhints, contexthints=contexthints
     )
     GLFW.ShowWindow(window)
-    
+
     #create standard signals
     signal_dict = register_callbacks(window, callbacks)
     @materialize window_position, window_size, hasfocus = signal_dict
@@ -355,6 +355,6 @@ end
 """
 returns a copy of the renderlist
 """
-function renderlist(s::Screen)
+function GLAbstraction.renderlist(s::Screen)
     vcat(s.renderlist...)
 end
