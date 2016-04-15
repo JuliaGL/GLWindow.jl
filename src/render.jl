@@ -1,3 +1,4 @@
+
 function clear_all!(window)
     wh = widths(window)
     glViewport(0,0, wh...)
@@ -13,8 +14,6 @@ end
 Renders a single frame of a `window`
 """
 function render_frame(window)
-    isopen(window) || return nothing
-
     fb = framebuffer(window)
     wh = widths(window)
 
@@ -42,17 +41,13 @@ end
 Blocking renderloop
 """
 function renderloop(window::Screen)
-    Reactive.stop_event_loop()
-    @async pollwindow(window)
     while isopen(window)
-        GLFW.PollEvents()
-        Reactive.run_till_now()
         render_frame(window)
+        GLFW.PollEvents()
     end
+    empty!(window)
     yield()
-    if Base.n_avail(Reactive._messages) > 0
-        Reactive.run_till_now()
-    end
+    GLFW.DestroyWindow(nativewindow(window))
 end
 
 function prepare(fb::GLFramebuffer)

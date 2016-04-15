@@ -270,8 +270,8 @@ function Screen(name = "GLWindow";
     preserve(map(signal_dict[:window_open]) do open
         if !open
             GLAbstraction.empty_shader_cache!()
-            GLFW.DestroyWindow(window)
         end
+        nothing
     end)
 
     screen = Screen(symbol(name),
