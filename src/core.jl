@@ -11,8 +11,7 @@ function Base.show(io::IO, m::Screen)
     println(io, "name: ", m.name)
     println(io, "children: ", length(m.children))
     println(io, "Inputs:")
-    map(m.inputs) do x
-        key, value = x
+    for (key, value) in m.inputs
         println(io, "  ", key, " => ", typeof(value))
     end
 end
