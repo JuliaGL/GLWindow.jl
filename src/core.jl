@@ -16,10 +16,17 @@ function Base.show(io::IO, m::Screen)
     end
 end
 
-GeometryTypes.isinside{T}(x::Screen, position::Vec{2, T}) =
-    !any(screen->isinside(screen.area.value, position...), x.children) && isinside(x.area.value, position...)
-
-GeometryTypes.isinside(screen::Screen, point) = isinside(screen.area.value, point...)
+"""
+mouse position is in coorditnates relative to `screen`
+"""
+function GeometryTypes.isinside(screen::Screen, mpos)
+    isinside(zeroposition(value(screen.area)), mpos...) || return false
+    for s in screen.children
+        # if inside any children, it's not inside screen
+        isinside(value(s.area), mpos...) && return false
+    end
+    true
+end
 
 """
 Args: `screens_mpos` -> Tuple{Vector{Screen}, Vec{2,T}}

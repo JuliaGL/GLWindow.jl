@@ -26,6 +26,14 @@ global const _openglerrorcallback = cfunction(
     (GLenum, GLenum,GLuint, GLenum, GLsizei, Ptr{GLchar}, Ptr{Void})
 )
 
+function GeometryTypes.isinside(screen::Screen, mpos::Vec)
+    isinside(zeroposition(value(screen.area)), mpos...) || return false
+    for s in screen.children
+        # if inside any children, it's not inside screen
+        isinside(value(s.area), mpos...) && return false
+    end
+    true
+end
 
 """
 Screen constructor cnstructing a new screen from a parant screen.
@@ -35,51 +43,33 @@ function Screen(
         name = gensym(parent.name),
         area = parent.area,
         children::Vector{Screen} = Screen[],
-        inputs::Dict{Symbol, Any} = parent.inputs,
+        inputs::Dict{Symbol, Any} = copy(parent.inputs),
         renderlist::Tuple = (),
         hidden::Bool = parent.hidden,
         glcontext::GLContext = parent.glcontext,
+        cameras = Dict{Symbol, Any}(),
         position = Vec3f0(2),
         lookat = Vec3f0(0),
         color = RGBA{Float32}(1,1,1,1)
+    )
+    screen = Screen(name,
+        area, parent, children, inputs,
+        renderlist, hidden, color,
+        cameras, glcontext
     )
     pintersect = const_lift(x->intersect(zeroposition(value(parent.area)), x), area)
     relative_mousepos = const_lift(inputs[:mouseposition]) do mpos
         Point{2, Float64}(mpos[1]-value(pintersect).x, mpos[2]-value(pintersect).y)
     end
     #checks if mouse is inside screen and not inside any children
-
-    insidescreen = droprepeats(const_lift(relative_mousepos) do mpos
-        for screen in children
-            # if inside any children, it's not inside screen
-            isinside(value(screen.area), mpos...) && return false
-        end
-        (mpos[1] < 0 || mpos[2] < 0) && return false
-        mpos[1] > value(pintersect).w && return false
-        mpos[2] > value(pintersect).h && return false
-        true
-    end)
-    # creates signals for the camera, which are only active if mouse is inside screen
-    camera_input = merge(inputs, Dict(
-        :mouseposition 	=> filterwhen(insidescreen, Vec(0.0, 0.0), relative_mousepos),
-        :scroll 		=> filterwhen(insidescreen, 0.0, inputs[:scroll]),
-        :window_area 	=> area
-    ))
-    new_input = merge(inputs, Dict(
+    insidescreen = droprepeats(const_lift(isinside, screen, relative_mousepos))
+    merge!(screen.inputs, Dict(
         :mouseinside 	=> insidescreen,
         :mouseposition 	=> relative_mousepos,
-        :scroll 		=> inputs[:scroll],
         :window_area 	=> area
     ))
     # creates cameras for the sceen with the new inputs
-    ocamera = OrthographicPixelCamera(camera_input)
-    pcamera = PerspectiveCamera(camera_input, position, lookat)
-    screen  = Screen(name,
-        area, parent, children, new_input,
-        renderlist, hidden, color,
-        Dict{Symbol, Any}(:perspective=>pcamera, :orthographic_pixel=>ocamera),
-        glcontext
-    )
+
     push!(parent.children, screen)
     screen
 end
@@ -273,12 +263,14 @@ function Screen(name = "GLWindow";
         end
         nothing
     end)
-
     screen = Screen(Symbol(name),
         window_area, Screen[], signal_dict,
         (), false, color,
         Dict{Symbol, Any}(),
         GLContext(window, GLFramebuffer(framebuffer_size))
+    )
+    screen.inputs[:mouseinside] = droprepeats(
+        const_lift(isinside, screen, screen.inputs[:mouseposition])
     )
     screen
 end
