@@ -26,14 +26,7 @@ global const _openglerrorcallback = cfunction(
     (GLenum, GLenum,GLuint, GLenum, GLsizei, Ptr{GLchar}, Ptr{Void})
 )
 
-function GeometryTypes.isinside(screen::Screen, mpos::Vec)
-    isinside(zeroposition(value(screen.area)), mpos...) || return false
-    for s in screen.children
-        # if inside any children, it's not inside screen
-        isinside(value(s.area), mpos...) && return false
-    end
-    true
-end
+
 
 """
 Screen constructor cnstructing a new screen from a parant screen.
@@ -265,9 +258,9 @@ function Screen(name = "GLWindow";
     end)
     screen = Screen(Symbol(name),
         window_area, Screen[], signal_dict,
-        (), false, color,
+        RenderObject[], false, color,
         Dict{Symbol, Any}(),
-        GLContext(window, GLFramebuffer(framebuffer_size))
+        GLContext(window)
     )
     screen.inputs[:mouseinside] = droprepeats(
         const_lift(isinside, screen, screen.inputs[:mouseposition])
@@ -302,8 +295,7 @@ end
 
 widths(s::Screen) = widths(value(s.area))
 ishidden(s::Screen) = s.hidden
-framebuffer(s::Screen) = s.glcontext.framebuffer
-nativewindow(s::Screen) = s.glcontext.window
+nativewindow(s::Screen) = s.glcontext.context
 
 """
 Check if a Screen is opened.
@@ -313,6 +305,12 @@ function Base.isopen(window::Screen)
 end
 function Base.isopen(window::GLFW.Window)
     !GLFW.WindowShouldClose(window)
+end
+"""
+Swap the framebuffers on the Screen.
+"""
+function makecontextcurrent(window::Screen)
+    GLFW.MakeContextCurrent(nativewindow(window))
 end
 """
 Swap the framebuffers on the Screen.
@@ -341,12 +339,12 @@ end
 Empties the content of the renderlist
 """
 function Base.empty!(s::Screen)
-    s.renderlist = ()
+    empty!(s.renderlist)
 end
 
 """
 returns a copy of the renderlist
 """
 function GLAbstraction.renderlist(s::Screen)
-    vcat(s.renderlist...)
+    copy(s.renderlist)
 end

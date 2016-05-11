@@ -105,12 +105,14 @@ const selection_data = Array(SelectionID{UInt16}, 1, 1)
 const old_mouse_position = Array(Vec{2, Float64}, 1)
 
 function push_selectionqueries!(screen)
-    mouse_position   = value(mouseposition(screen))
+    mouse_position = value(mouseposition(screen))
     selection_signal = mouse2id(screen)
-    window_size      = widths(screen)
-    buff  = framebuffer(screen).objectid
+    window_size = widths(screen)
+    framebuffer = screen.renderpasses[1].target # first renderpass
+    # fourth buffer is the id picking buffer. [1] because framebuffer[4] == (Texture, Attachment)
+    buff = framebuffer[4][1]
     if old_mouse_position[] != mouse_position
-        glReadBuffer(GL_COLOR_ATTACHMENT1)
+        glReadBuffer(GL_COLOR_ATTACHMENT4)
         x,y = Vec{2, Int}(map(floor, mouse_position))
         w,h = window_size
         if x > 0 && y > 0 && x <= w && y <= h
