@@ -54,13 +54,18 @@ function render_frame(window)
     ot_fb = opaque_pass.target # opaque and transparent share the same framebuffer
     bind(ot_fb)
     resize!(ot_fb, wh)
+    glDisable(GL_SCISSOR_TEST)
+    glViewport(0,0, wh...)
     glClearBufferfv(GL_COLOR, 3, Float32[0,0,0,0]) # clear the hit detection buffer
     drawbuffers(ot_fb, [1,4])
 
     # render the pass
     opaque_setup()
+    glClearBufferfv(GL_DEPTH, 0, Float32[1]) # we always
     render_opaque(window)
 
+    glDisable(GL_SCISSOR_TEST)
+    glViewport(0,0, wh...)
 
     drawbuffers(ot_fb, [2,3])
     oit_setup()
@@ -131,11 +136,8 @@ function render_opaque(x::Screen, parent::Screen=x, context=x.area.value)
             glEnable(GL_SCISSOR_TEST)
             glScissor(sa_pa)
             glViewport(sa)
-            glClearBufferfv(GL_DEPTH, 0, Float32[1])
-            if alpha(x.color) > 0
-                c = Float32[red(x.color), green(x.color), blue(x.color), alpha(x.color)]
-                glClearBufferfv(GL_COLOR, 0, c)
-            end
+            c = Float32[red(x.color), green(x.color), blue(x.color), alpha(x.color)]
+            glClearBufferfv(GL_COLOR, 0, c)
             for elem in x.renderlist[x.opaque]
                 elem[:is_transparent_pass] = Cint(false)
                 render(elem)

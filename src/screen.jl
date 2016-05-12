@@ -37,7 +37,7 @@ function Screen(
         area = parent.area,
         children::Vector{Screen} = Screen[],
         inputs::Dict{Symbol, Any} = copy(parent.inputs),
-        renderlist::Tuple = (),
+        renderlist::Vector = RenderObject[],
         hidden::Bool = parent.hidden,
         glcontext::GLContext = parent.glcontext,
         cameras = Dict{Symbol, Any}(),
