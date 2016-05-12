@@ -31,6 +31,7 @@ function opaque_setup()
     glDepthMask(GL_TRUE)
     glDisable(GL_BLEND)
 end
+
 function oit_setup()
     glEnable(GL_DEPTH_TEST)
     glDepthMask(GL_FALSE)
@@ -138,7 +139,7 @@ function render_opaque(x::Screen, parent::Screen=x, context=x.area.value)
             glViewport(sa)
             c = Float32[red(x.color), green(x.color), blue(x.color), alpha(x.color)]
             glClearBufferfv(GL_COLOR, 0, c)
-            for elem in x.renderlist[x.opaque]
+            for elem in x.renderlist
                 elem[:is_transparent_pass] = Cint(false)
                 render(elem)
             end
