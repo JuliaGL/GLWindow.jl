@@ -77,9 +77,9 @@ function button_signals(buttons::Signal{NTuple{3, Int}}, name::Symbol)
     released = filter(isreleased, buttons.value, buttons)
     down     = filter(isdown, buttons.value, buttons)
     Dict{Symbol, Any}(
-        symbol("$(name)_released") => map(first, released),
-        symbol("$(name)_down")     => map(first, down),
-        symbol("$(name)s_pressed") => foldp(
+        Symbol("$(name)_released") => map(first, released),
+        Symbol("$(name)_down")     => map(first, down),
+        Symbol("$(name)s_pressed") => foldp(
             currently_pressed_keys, keyset, buttons
         )
     )
