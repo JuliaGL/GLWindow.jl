@@ -274,7 +274,7 @@ function Screen(name = "GLWindow";
         nothing
     end)
 
-    screen = Screen(symbol(name),
+    screen = Screen(Symbol(name),
         window_area, Screen[], signal_dict,
         (), false, color,
         Dict{Symbol, Any}(),
@@ -300,7 +300,7 @@ function screenbuffer(window, channel=:color)
     fb = framebuffer(window)
     channels = fieldnames(fb)[2:end]
     if channel in channels
-        img = gpu_data(fb.(channel))[window.area.value]
+        img = gpu_data(getfield(fb, channel))[window.area.value]
         return rotl90(img)
     end
     error("Channel $channel does not exist. Only these channels are available: $channels")
