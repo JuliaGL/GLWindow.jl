@@ -5,4 +5,4 @@ GLAbstraction
 GLFW
 Reactive
 GeometryTypes
-Compat
+Compat 0.7.15
