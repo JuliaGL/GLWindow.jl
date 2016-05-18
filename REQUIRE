@@ -6,3 +6,7 @@ GLFW
 Reactive
 GeometryTypes
 Compat 0.7.15
+ColorTypes
+FixedPointNumbers
+FixedSizeArrays
+FileIO
