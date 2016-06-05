@@ -13,7 +13,7 @@ function openglerrorcallback(
         |
         | OpenGL Error!
         | source: $(GLENUM(source).name) :: type: $(GLENUM(typ).name)
-        |  $(ascii(bytestring(message, length)))
+        |  $(ascii(Compat.String(message, length)))
         |________________________________________________________________
     """
     output = typ == GL_DEBUG_TYPE_ERROR ? error : info
@@ -199,7 +199,7 @@ function create_glcontext(
         GLFW.WindowHint(wh...)
     end
 
-    @osx_only begin
+    @static if is_apple()
         if debugging
             warn("OpenGL debug message callback not available on osx")
             debugging = false
@@ -207,7 +207,7 @@ function create_glcontext(
     end
     GLFW.WindowHint(GLFW.OPENGL_DEBUG_CONTEXT, Cint(debugging))
 
-    window = GLFW.CreateWindow(resolution..., utf8(name))
+    window = GLFW.CreateWindow(resolution..., Compat.String(name))
     GLFW.MakeContextCurrent(window)
 
     debugging && glDebugMessageCallbackARB(_openglerrorcallback, C_NULL)

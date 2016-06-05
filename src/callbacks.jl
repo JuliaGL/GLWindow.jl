@@ -74,7 +74,7 @@ returns `Signal{Vector{Compat.UTF8String}}`, which are absolute file paths
 """
 function dropped_files(window, s::Signal{Vector{Compat.UTF8String}}=Signal(Compat.UTF8String[]))
     GLFW.SetDropCallback(window, (window, files) -> begin
-        push!(s, map(utf8, files))
+        push!(s, map(Compat.String, files))
     end)
     s
 end
