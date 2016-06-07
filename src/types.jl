@@ -77,7 +77,7 @@ end
 function Base.resize!(fb::FrameBuffer, window_size)
     ws = tuple(window_size...)
     if ws!=size(fb) && all(x->x>0, window_size)
-        if OS_NAME != :Linux # hacky workaround for linux driver bug (more specificall Intel!?)
+        @static if is_linux()# hacky workaround for linux driver bug (more specificall Intel!?)
             fb.id = glGenFramebuffers()
             bind(fb)
             for (i, (attachment, attachmentpoint)) in enumerate(fb)
