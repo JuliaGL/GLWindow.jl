@@ -120,15 +120,13 @@ function call(fs::FullScreenPostRender)
     glBindVertexArray(0)
 end
 immutable OITPreRender end
+
+# TODO implement this correctly according to the paper
 function call(::OITPreRender)
-    glEnable(GL_DEPTH_TEST)
-    glDepthMask(GL_FALSE)
-    glClearBufferfv(GL_COLOR, 0, Float32[0,0,0,0])
-    glClearBufferfv(GL_COLOR, 1, Float32[1,1,1,1])
-    glEnable(GL_BLEND)
-    glBlendEquation(GL_FUNC_ADD)
-    glBlendFunci(0, GL_ONE, GL_ONE)
-    glBlendFunci(1, GL_ZERO, GL_ONE_MINUS_SRC_COLOR)
+    glDisable(GL_DEPTH_TEST)
+    glDisable(GL_STENCIL_TEST)
+    glDisable(GL_CULL_FACE)
+    glDisable(GL_BLEND)
 end
 
 immutable OpaquePreRender end
@@ -179,7 +177,7 @@ function OITResolve(sum_color, sum_weight, opaque_color)
         :sum_weight_tex => sum_weight,
         :opaque_color_tex => opaque_color,
     )
-    robj = RenderObject(data, shader, FullscreenPreRender(), nothing)
+    robj = RenderObject(data, shader, OITPreRender(), nothing)
     robj.postrenderfunction = FullScreenPostRender(robj.vertexarray.id)
     robj
 end

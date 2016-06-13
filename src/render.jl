@@ -35,6 +35,7 @@ end
 function oit_setup()
     glEnable(GL_DEPTH_TEST)
     glDepthMask(GL_FALSE)
+    glDepthFunc(GL_LEQUAL)
     zero_clear = Float32[0,0,0,0]
     one_clear = Float32[1,1,1,1]
     glClearBufferfv(GL_COLOR, 1, zero_clear)
@@ -122,6 +123,8 @@ function render_transparent(x::Screen, parent::Screen=x, context=x.area.value)
             glEnable(GL_SCISSOR_TEST)
             glScissor(sa_pa)
             glViewport(sa)
+            c = Float32[red(x.color), green(x.color), blue(x.color), alpha(x.color)]
+            glClearBufferfv(GL_COLOR, 0, c)
             for elem in x.renderlist[x.transparent]
                 elem[:is_transparent_pass] = Cint(true)
                 render(elem)

@@ -356,3 +356,46 @@ function destroy!(screen::Screen)
         nw.handle = C_NULL
     end
 end
+get_id(x::Integer) = x
+get_id(x::RenderObject) = x.id
+function delete_robj!(list, robj)
+    for (i, id) in enumerate(list)
+        if get_id(id) == robj.id
+            splice!(list, i)
+            return true, i
+        end
+    end
+    false, 0
+end
+function delete_index(list, index)
+    newlist = Int[]
+    for (i, ref_i) in enumerate(list)
+        if ref_i < i
+            push!(newlist, ref_i)
+        elseif ref_i > index
+            push!(newlist, ref_i-1)
+        else
+            continue # skipp ==
+        end
+    end
+    newlist
+end
+function Base.delete!(screen::Screen, robj::RenderObject)
+    deleted, i = delete_robj!(screen.renderlist, robj)
+    if deleted
+        for (k,v) in screen.camera2robj
+            delete_robj!(v, robj)
+        end
+        screen.transparent = delete_index(screen.transparent, i)
+        screen.opaque = delete_index(screen.opaque, i)
+    end
+    deleted
+end
+
+function GLAbstraction.robj_from_camera(window, camera)
+    robj_list = get(window.camera2robj, camera, ())
+    isempty(robj_list) && return RenderObject[]
+    return filter(window.renderlist) do robj
+        robj.id in robj_list
+    end
+end

@@ -52,6 +52,7 @@ export zeroposition
 export create_glcontext
 export renderlist
 export add_oit_fxaa_postprocessing!
-export  destroy!
+export destroy!
+export robj_from_camera
 
 end
