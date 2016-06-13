@@ -250,12 +250,6 @@ function Screen(name = "GLWindow";
     signal_dict[:mouse2id] = Signal(SelectionID{Int}(-1, -1))
     # TODO: free when context is freed. We don't have a good abstraction of a gl context yet, though
     # (It could be shared, so it does not map directly to one screen)
-    preserve(map(signal_dict[:window_open]) do open
-        if !open
-            GLAbstraction.empty_shader_cache!()
-        end
-        nothing
-    end)
     screen = Screen(Symbol(name),
         window_area, Screen[], signal_dict,
         RenderObject[], false, color,
@@ -265,6 +259,7 @@ function Screen(name = "GLWindow";
     screen.inputs[:mouseinside] = droprepeats(
         const_lift(isinside, screen, screen.inputs[:mouseposition])
     )
+    Reactive.stop()
     screen
 end
 
@@ -273,8 +268,9 @@ Function that creates a screenshot from `window` and saves it to `path`.
 You can choose the channel of the framebuffer, which is usually:
 `color`, `depth` and `objectid`
 """
-screenshot(window; path="screenshot.png", channel=:color) =
-   save(path, screenbuffer(window, channel), true)
+function screenshot(window; path="screenshot.png", channel=:color)
+    save(path, screenbuffer(window, channel), true)
+end
 
 """
 Returns the contents of the framebuffer of `window` as a Julia Array.
@@ -282,10 +278,11 @@ You can choose the channel of the framebuffer, which is usually:
 `color`, `depth` and `objectid`
 """
 function screenbuffer(window, channel=:color)
-    fb = framebuffer(window)
-    channels = fieldnames(fb)[2:end]
-    if channel in channels
-        img = gpu_data(getfield(fb, channel))[window.area.value]
+    if channel == :color
+        glBindFramebuffer(GL_FRAMEBUFFER, 0)
+        a = window.area.value
+        img = Array(BGR{U8}, a.w, a.h)
+        glReadPixels(a.x-1, a.y-1, a.w, a.h, GL_BGR, GL_UNSIGNED_BYTE, img)
         return rotl90(img)
     end
     error("Channel $channel does not exist. Only these channels are available: $channels")
@@ -304,6 +301,7 @@ function Base.isopen(window::Screen)
     isopen(nativewindow(window))
 end
 function Base.isopen(window::GLFW.Window)
+    window.handle == C_NULL && return false
     !GLFW.WindowShouldClose(window)
 end
 """
@@ -340,6 +338,8 @@ Empties the content of the renderlist
 """
 function Base.empty!(s::Screen)
     empty!(s.renderlist)
+    empty!(s.opaque)
+    empty!(s.transparent)
 end
 
 """
@@ -347,4 +347,12 @@ returns a copy of the renderlist
 """
 function GLAbstraction.renderlist(s::Screen)
     copy(s.renderlist)
+end
+function destroy!(screen::Screen)
+    empty!(screen)
+    nw = nativewindow(screen)
+    if nw.handle != C_NULL
+        GLFW.DestroyWindow(nw)
+        nw.handle = C_NULL
+    end
 end
