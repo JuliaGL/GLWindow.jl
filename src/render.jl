@@ -44,10 +44,15 @@ function oit_setup()
     glBlendFunci(1, GL_ONE, GL_ONE)
     glBlendFunci(2, GL_ZERO, GL_ONE_MINUS_SRC_COLOR)
 end
+
+
+
+
 """
 Renders a single frame of a `window`
 """
 function render_frame(window)
+    isopen(window) || return
     wh = widths(window)
     opaque_pass, tansp_pass, color_pass, fxaa_pass = window.renderpasses
 
@@ -57,12 +62,12 @@ function render_frame(window)
     resize!(ot_fb, wh)
     glDisable(GL_SCISSOR_TEST)
     glViewport(0,0, wh...)
-    glClearBufferfv(GL_COLOR, 3, Float32[0,0,0,0]) # clear the hit detection buffer
     drawbuffers(ot_fb, [1,4])
+    glClearBufferfv(GL_COLOR, 3, Float32[0,0,0,0]) # clear the hit detection buffer
 
     # render the pass
     opaque_setup()
-    glClearBufferfv(GL_DEPTH, 0, Float32[1]) # we always
+    glClearBufferfv(GL_DEPTH, 0, Float32[1]) # we always clear depth
     render_opaque(window)
 
     glDisable(GL_SCISSOR_TEST)
@@ -77,7 +82,7 @@ function render_frame(window)
     glDisable(GL_SCISSOR_TEST)
     glViewport(0,0, wh...)
     #Read all the selection queries
-    #push_selectionqueries!(window)
+    push_selectionqueries!(window)
 
     # resolve colors
     resize!(color_pass.target, wh)
@@ -89,7 +94,11 @@ function render_frame(window)
     # swap buffers and poll GLFW events
     swapbuffers(window)
     GLFW.PollEvents()
+    Reactive.run_timer()
+    Reactive.run_till_now()
+    Reactive.run_till_now() # execute secondary cycled events!
     yield()
+    nothing
 end
 
 """
@@ -99,17 +108,15 @@ function renderloop(window::Screen)
     while isopen(window)
         render_frame(window)
     end
-    empty!(window)
-    yield()
-    GLFW.DestroyWindow(nativewindow(window))
+    destroy!(window)
 end
 
 
 function render_transparent(x::Screen, parent::Screen=x, context=x.area.value)
     if isopen(x) && !ishidden(x)
-        sa    = value(x.area)
-        sa    = SimpleRectangle(context.x+sa.x, context.y+sa.y, sa.w, sa.h) # bring back to absolute values
-        pa    = context
+        sa = value(x.area)
+        sa = SimpleRectangle(context.x+sa.x, context.y+sa.y, sa.w, sa.h) # bring back to absolute values
+        pa = context
         sa_pa = intersect(pa, sa) # intersection with parent
         if sa_pa != SimpleRectangle{Int}(0,0,0,0) # if it is in the parent area
             glEnable(GL_SCISSOR_TEST)
