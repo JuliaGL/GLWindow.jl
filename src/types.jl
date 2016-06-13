@@ -77,13 +77,13 @@ end
 function Base.resize!(fb::FrameBuffer, window_size)
     ws = tuple(window_size...)
     if ws!=size(fb) && all(x->x>0, window_size)
-        @static if is_linux()# hacky workaround for linux driver bug (more specificall Intel!?)
+        @static if false# hacky workaround for linux driver bug (more specificall Intel!?)
             fb.id = glGenFramebuffers()
             bind(fb)
             for (i, (attachment, attachmentpoint)) in enumerate(fb)
                 new_attachment = similar(attachment)
                 attach_framebuffer(new_attachment, attachmentpoint)
-                fb.attachment[i] = (attachment, attachmentpoint)
+                fb.attachments[i] = (attachment, attachmentpoint)
             end
             bind(fb, 0)
         else
@@ -215,7 +215,7 @@ function add_oit_fxaa_postprocessing!(window)
         (opaque_color, GL_COLOR_ATTACHMENT0),
         (sum_color, GL_COLOR_ATTACHMENT1),
         (sum_weight, GL_COLOR_ATTACHMENT2),
-        (sum_weight, GL_COLOR_ATTACHMENT3),
+        (objectid_buffer, GL_COLOR_ATTACHMENT3),
         (depth_buffer, GL_DEPTH_ATTACHMENT),
     ], context)
 
@@ -269,7 +269,11 @@ end
 
 
 
+function process_events(w)
+    while isopen(w)
 
+    end
+end
 
 type Screen
     name 		::Symbol
@@ -288,6 +292,7 @@ type Screen
     renderpasses::Vector{RenderPass}
     opaque      ::Vector{Int}
     transparent ::Vector{Int}
+    camera2robj ::Dict{Symbol, Vector{Int}}
 
 
     function Screen(
@@ -302,11 +307,12 @@ type Screen
             cameras 	::Dict{Symbol, Any},
             context     ::GLContext
         )
-        new(
+        w = new(
             name, area, parent,
             children, inputs, renderlist,
             hidden, RGBA{Float32}(color), cameras,
-            context, RenderPass[], Int[], Int[]
+            context, RenderPass[], Int[], Int[],
+            Dict{Symbol, Vector{Int}}()
         )
     end
 
@@ -321,12 +327,14 @@ type Screen
             cameras     ::Dict{Symbol, Any},
             context     ::GLContext
         )
+
         parent = new()
-        new(
+        w = new(
             name, area, parent,
             children, inputs, renderlist,
             hidden, RGBA{Float32}(color), cameras,
-            context, RenderPass[], Int[], Int[]
+            context, RenderPass[], Int[], Int[],
+            Dict{Symbol, Vector{Int}}()
         )
     end
 end
