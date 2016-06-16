@@ -105,7 +105,7 @@ end
 
 
 immutable FullscreenPreRender end
-function Base.call(::FullscreenPreRender)
+@compat function (::FullscreenPreRender)()
     glDisable(GL_DEPTH_TEST)
     glDisable(GL_STENCIL_TEST)
     glDisable(GL_CULL_FACE)
@@ -114,7 +114,7 @@ end
 immutable FullScreenPostRender
     vao_id::GLuint
 end
-function call(fs::FullScreenPostRender)
+@compat function (fs::FullScreenPostRender)()
     glBindVertexArray(fs.vao_id)
     glDrawArrays(GL_TRIANGLES, 0, 3)
     glBindVertexArray(0)
@@ -122,7 +122,7 @@ end
 immutable OITPreRender end
 
 # TODO implement this correctly according to the paper
-function call(::OITPreRender)
+@compat function (::OITPreRender)()
     glDisable(GL_DEPTH_TEST)
     glDisable(GL_STENCIL_TEST)
     glDisable(GL_CULL_FACE)
@@ -130,7 +130,7 @@ function call(::OITPreRender)
 end
 
 immutable OpaquePreRender end
-function call(::OpaquePreRender)
+@compat function (::OpaquePreRender)()
     glEnable(GL_DEPTH_TEST)
     glDepthMask(GL_TRUE)
     glDisable(GL_BLEND)
