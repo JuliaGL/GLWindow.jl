@@ -74,7 +74,7 @@ function render_frame(window)
     glDisable(GL_SCISSOR_TEST)
     glViewport(0,0, wh...)
 
-    drawbuffers(ot_fb, [2,3])
+    drawbuffers(ot_fb, [2,3,4])
     oit_setup()
     render_transparent(window)
 
@@ -143,7 +143,10 @@ function render_opaque(x::Screen, parent::Screen=x, context=x.area.value)
         sa    = SimpleRectangle(context.x+sa.x, context.y+sa.y, sa.w, sa.h) # bring back to absolute values
         pa    = context
         sa_pa = intersect(pa, sa) # intersection with parent
-        if sa_pa != SimpleRectangle{Int}(0,0,0,0) # if it is in the parent area
+        if(
+            sa_pa != SimpleRectangle{Int}(0,0,0,0) && # if it is in the parent area
+            (sa_pa.w > 0 && sa_pa.h > 0)
+            )
             glEnable(GL_SCISSOR_TEST)
             glScissor(sa_pa)
             glViewport(sa)
