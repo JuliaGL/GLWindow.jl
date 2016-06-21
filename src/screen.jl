@@ -284,6 +284,14 @@ function screenbuffer(window, channel=:color)
         img = Array(BGR{U8}, a.w, a.h)
         glReadPixels(a.x-1, a.y-1, a.w, a.h, GL_BGR, GL_UNSIGNED_BYTE, img)
         return rotl90(img)
+    elseif channel == :id
+        opaque_pass, tansp_pass, color_pass, fxaa_pass = window.renderpasses
+        id_buff = gpu_data(opaque_pass.target.attachments[4][1])
+        maxi = maximum(id_buff)
+        return map(id_buff) do id
+            x = id ./ maxi
+            RGB{U8}(x[1], 0, x[2])
+        end
     end
     error("Channel $channel does not exist. Only these channels are available: $channels")
 end
