@@ -64,11 +64,12 @@ function render_frame(window)
     glDisable(GL_SCISSOR_TEST)
     glViewport(0,0, wh...)
     drawbuffers(ot_fb, [1,4])
+    glClearBufferfv(GL_DEPTH, 0, Float32[1])
     glClearBufferfv(GL_COLOR, 3, Float32[0,0,0,0]) # clear the hit detection buffer
 
     # render the pass
     opaque_setup()
-    glClearBufferfv(GL_DEPTH, 0, Float32[1]) # we always clear depth
+    
     render_opaque(window)
 
     glDisable(GL_SCISSOR_TEST)
@@ -95,6 +96,8 @@ function render_frame(window)
     # swap buffers and poll GLFW events
     swapbuffers(window)
     GLFW.PollEvents()
+    #GLFW.WaitEvents()
+    #@threadcall((:glfwWaitEvents, GLFW.lib), Void, ())
     Reactive.run_timer()
     Reactive.run_till_now()
     Reactive.run_till_now() # execute secondary cycled events!
@@ -102,12 +105,26 @@ function render_frame(window)
     nothing
 end
 
+
+# nanoseconds between each frame
+const _ns_per_frame = 1e9 / 60
+
 """
 Blocking renderloop
 """
 function renderloop(window::Screen)
+    nw = time_ns()
     while isopen(window)
         render_frame(window)
+        GLFW.PollEvents()
+
+        # if we've gone too fast, sleep for the remaining time
+        ns_diff = time_ns() - nw
+        nw += ns_diff
+        if ns_diff < _ns_per_frame
+            secs = (_ns_per_frame - ns_diff) * 1e-9
+            sleep(secs)
+        end
     end
     destroy!(window)
 end
@@ -124,6 +141,7 @@ function render_transparent(x::Screen, parent::Screen=x, context=x.area.value)
             glScissor(sa_pa)
             glViewport(sa)
             c = Float32[red(x.color), green(x.color), blue(x.color), alpha(x.color)]
+            glClearBufferfv(GL_DEPTH, 0, Float32[1])
             glClearBufferfv(GL_COLOR, 0, c)
             for elem in x.renderlist[x.transparent]
                 elem[:is_transparent_pass] = Cint(true)
@@ -151,6 +169,7 @@ function render_opaque(x::Screen, parent::Screen=x, context=x.area.value)
             glScissor(sa_pa)
             glViewport(sa)
             c = Float32[red(x.color), green(x.color), blue(x.color), alpha(x.color)]
+            glClearBufferfv(GL_DEPTH, 0, Float32[1])
             glClearBufferfv(GL_COLOR, 0, c)
             for elem in x.renderlist
                 elem[:is_transparent_pass] = Cint(false)
