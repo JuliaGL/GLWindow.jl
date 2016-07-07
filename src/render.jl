@@ -57,7 +57,6 @@ function render_frame(window)
     wh = widths(window)
     opaque_pass, tansp_pass, color_pass, fxaa_pass = window.renderpasses
 
-
     ot_fb = opaque_pass.target # opaque and transparent share the same framebuffer
     bind(ot_fb)
     resize!(ot_fb, wh)
@@ -69,7 +68,7 @@ function render_frame(window)
 
     # render the pass
     opaque_setup()
-    
+
     render_opaque(window)
 
     glDisable(GL_SCISSOR_TEST)

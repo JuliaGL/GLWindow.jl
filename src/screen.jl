@@ -348,6 +348,11 @@ function Base.empty!(s::Screen)
     empty!(s.renderlist)
     empty!(s.opaque)
     empty!(s.transparent)
+    for c in s.children
+        empty!(c)
+    end
+    empty!(s.children)
+    nothing
 end
 
 """
