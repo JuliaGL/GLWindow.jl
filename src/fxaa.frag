@@ -1045,5 +1045,5 @@ void main(void)
         0.0f,                                    // FxaaFloat fxaaConsoleEdgeThresholdMin,
         FxaaFloat4(0.0f, 0.0f, 0.0f, 0.0f)        // FxaaFloat fxaaConsole360ConstDir,
     );
-    //fragment_color = texture(color_texture, frag_uv);
+    // fragment_color = texture(color_texture, frag_uv);
 }

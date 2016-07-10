@@ -100,7 +100,6 @@ function render_frame(window)
     Reactive.run_timer()
     Reactive.run_till_now()
     Reactive.run_till_now() # execute secondary cycled events!
-    yield()
     nothing
 end
 
@@ -142,7 +141,8 @@ function render_transparent(x::Screen, parent::Screen=x, context=x.area.value)
             c = Float32[red(x.color), green(x.color), blue(x.color), alpha(x.color)]
             glClearBufferfv(GL_DEPTH, 0, Float32[1])
             glClearBufferfv(GL_COLOR, 0, c)
-            for elem in x.renderlist[x.transparent]
+            for i in x.transparent
+                elem = x.renderlist[i]
                 elem[:is_transparent_pass] = Cint(true)
                 render(elem)
             end
@@ -160,10 +160,10 @@ function render_opaque(x::Screen, parent::Screen=x, context=x.area.value)
         sa    = SimpleRectangle(context.x+sa.x, context.y+sa.y, sa.w, sa.h) # bring back to absolute values
         pa    = context
         sa_pa = intersect(pa, sa) # intersection with parent
-        if(
+        if (
             sa_pa != SimpleRectangle{Int}(0,0,0,0) && # if it is in the parent area
             (sa_pa.w > 0 && sa_pa.h > 0)
-            )
+        )
             glEnable(GL_SCISSOR_TEST)
             glScissor(sa_pa)
             glViewport(sa)
