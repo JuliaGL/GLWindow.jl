@@ -93,13 +93,14 @@ function render_frame(window)
     render(fxaa_pass)
 
     # swap buffers and poll GLFW events
-    swapbuffers(window)
-    GLFW.PollEvents()
+    #GLFW.PollEvents()
+    #yield()
     #GLFW.WaitEvents()
     #@threadcall((:glfwWaitEvents, GLFW.lib), Void, ())
-    Reactive.run_timer()
-    Reactive.run_till_now()
-    Reactive.run_till_now() # execute secondary cycled events!
+    #Reactive.run_timer()
+    #Reactive.run_till_now()
+    #Reactive.run_till_now() # execute secondary cycled events!
+    #swapbuffers(window)
     nothing
 end
 
@@ -111,17 +112,14 @@ const _ns_per_frame = 1e9 / 60
 Blocking renderloop
 """
 function renderloop(window::Screen)
-    nw = time_ns()
     while isopen(window)
+        nw = time_ns()
         render_frame(window)
-        GLFW.PollEvents()
-
         # if we've gone too fast, sleep for the remaining time
         ns_diff = time_ns() - nw
-        nw += ns_diff
-        if ns_diff < _ns_per_frame
-            secs = (_ns_per_frame - ns_diff) * 1e-9
-            sleep(secs)
+        while ns_diff < _ns_per_frame
+            ns_diff = time_ns() - nw
+            sleep(0.001) # sleep the minimal amount possible
         end
     end
     destroy!(window)

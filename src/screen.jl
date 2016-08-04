@@ -259,7 +259,8 @@ function Screen(name = "GLWindow";
     screen.inputs[:mouseinside] = droprepeats(
         const_lift(isinside, screen, screen.inputs[:mouseposition])
     )
-    Reactive.stop()
+    GLFW.SwapInterval(0) # deactivating vsync seems to make everything quite a bit smoother
+    #Reactive.stop()
     screen
 end
 
