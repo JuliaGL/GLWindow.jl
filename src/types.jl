@@ -139,9 +139,9 @@ immutable OpaquePreRender end
 end
 
 
-loadshader(name) = load(joinpath(dirname(@__FILE__), name))
+loadshader(name) = joinpath(dirname(@__FILE__), name)
 
-rcpframe(x) = 1f0/Vec2f0(x[1], x[2])
+rcpframe(x) = 1f0./Vec2f0(x[1], x[2])
 """
 Creates a postprocessing render object.
 This will transfer the pixels from the color texture of the FrameBuffer
@@ -238,9 +238,6 @@ function add_oit_fxaa_postprocessing!(window)
 end
 
 
-
-
-
 immutable MonitorProperties
     name::Compat.UTF8String
     isprimary::Bool
@@ -253,25 +250,18 @@ immutable MonitorProperties
 end
 
 function MonitorProperties(monitor::Monitor)
-    name 		 = GLFW.GetMonitorName(monitor)
-    isprimary 	 = GLFW.GetPrimaryMonitor() == monitor
-    position	 = Vec{2, Int}(GLFW.GetMonitorPos(monitor)...)
+    name = GLFW.GetMonitorName(monitor)
+    isprimary = GLFW.GetPrimaryMonitor() == monitor
+    position = Vec{2, Int}(GLFW.GetMonitorPos(monitor)...)
     physicalsize = Vec{2, Int}(GLFW.GetMonitorPhysicalSize(monitor)...)
-    videomode 	 = GLFW.GetVideoMode(monitor)
+    videomode = GLFW.GetVideoMode(monitor)
 
-    dpi			 = Vec(videomode.width * 25.4, videomode.height * 25.4) ./ Vec{2, Float64}(physicalsize)
+    dpi = Vec(videomode.width * 25.4, videomode.height * 25.4) ./ Vec{2, Float64}(physicalsize)
     videomode_supported = GLFW.GetVideoModes(monitor)
 
     MonitorProperties(name, isprimary, position, physicalsize, videomode, videomode_supported, dpi, monitor)
 end
 
-
-
-function process_events(w)
-    while isopen(w)
-
-    end
-end
 
 type Screen
     name 		::Symbol
