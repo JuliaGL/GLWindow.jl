@@ -74,7 +74,7 @@ returns `Signal{Vector{Compat.UTF8String}}`, which are absolute file paths
 """
 function dropped_files(window, s::Signal{Vector{Compat.UTF8String}}=Signal(Compat.UTF8String[]))
     GLFW.SetDropCallback(window, (window, files) -> begin
-        push!(s, map(utf8, files))
+        push!(s, map(Compat.String, files))
     end)
     s
 end
@@ -147,7 +147,10 @@ Takes a screen and registers a list of callback functions.
 Returns a dict{Symbol, Signal}(name_of_callback => signal)
 """
 function register_callbacks(window::GLFW.Window, callbacks::Vector{Function})
-    Dict{Symbol, Any}([Symbol(last(split(string(f),"."))) => f(window) for f in callbacks])
+    tmp = map(callbacks) do f
+        (Symbol(last(split(string(f),"."))), f(window))
+    end
+    Dict{Symbol, Any}(tmp)
 end
 function register_callbacks(window::Screen, callbacks::Vector{Function})
     register_callbacks(window.nativewindow, callbacks)
