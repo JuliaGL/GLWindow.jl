@@ -16,33 +16,22 @@ Renders a single frame of a `window`
 function render_frame(window)
     fb = framebuffer(window)
     wh = widths(window)
-
     resize!(fb, wh)
     prepare(fb)
     glViewport(0,0, wh...)
-
     render(window)
     #Read all the selection queries
     push_selectionqueries!(window)
-
     display(fb, window)
+end
 
-    swapbuffers(window)
-    yield()
-end
-function pollwindow(window)
-    while isopen(window)
-       GLFW.PollEvents()
-       yield()
-       sleep(1/60)
-    end
-end
 """
 Blocking renderloop
 """
 function renderloop(window::Screen)
     while isopen(window)
         render_frame(window)
+        swapbuffers(window)
         GLFW.PollEvents()
     end
     empty!(window)

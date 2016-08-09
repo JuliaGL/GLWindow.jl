@@ -13,7 +13,7 @@ function openglerrorcallback(
         |
         | OpenGL Error!
         | source: $(GLENUM(source).name) :: type: $(GLENUM(typ).name)
-        |  $(ascii(bytestring(message, length)))
+        |  $(Compat.String(message, length))
         |________________________________________________________________
     """
     output = typ == GL_DEBUG_TYPE_ERROR ? error : info
@@ -35,54 +35,37 @@ function Screen(
         name = gensym(parent.name),
         area = parent.area,
         children::Vector{Screen} = Screen[],
-        inputs::Dict{Symbol, Any} = parent.inputs,
+        inputs::Dict{Symbol, Any} = copy(parent.inputs),
         renderlist::Tuple = (),
         hidden::Bool = parent.hidden,
         glcontext::GLContext = parent.glcontext,
+        cameras = Dict{Symbol, Any}(),
         position = Vec3f0(2),
         lookat = Vec3f0(0),
         color = RGBA{Float32}(1,1,1,1)
+    )
+    screen = Screen(name,
+        area, parent, children, inputs,
+        renderlist, hidden, color,
+        cameras, glcontext
     )
     pintersect = const_lift(x->intersect(zeroposition(value(parent.area)), x), area)
     relative_mousepos = const_lift(inputs[:mouseposition]) do mpos
         Point{2, Float64}(mpos[1]-value(pintersect).x, mpos[2]-value(pintersect).y)
     end
     #checks if mouse is inside screen and not inside any children
-
-    insidescreen = droprepeats(const_lift(relative_mousepos) do mpos
-        for screen in children
-            # if inside any children, it's not inside screen
-            isinside(value(screen.area), mpos...) && return false
-        end
-        (mpos[1] < 0 || mpos[2] < 0) && return false
-        mpos[1] > value(pintersect).w && return false
-        mpos[2] > value(pintersect).h && return false
-        true
-    end)
-    # creates signals for the camera, which are only active if mouse is inside screen
-    camera_input = merge(inputs, Dict(
-        :mouseposition 	=> filterwhen(insidescreen, Vec(0.0, 0.0), relative_mousepos),
-        :scroll 		=> filterwhen(insidescreen, 0.0, inputs[:scroll]),
-        :window_area 	=> area
-    ))
-    new_input = merge(inputs, Dict(
+    insidescreen = droprepeats(const_lift(isinside, screen, relative_mousepos))
+    merge!(screen.inputs, Dict(
         :mouseinside 	=> insidescreen,
         :mouseposition 	=> relative_mousepos,
-        :scroll 		=> inputs[:scroll],
         :window_area 	=> area
     ))
     # creates cameras for the sceen with the new inputs
-    ocamera = OrthographicPixelCamera(camera_input)
-    pcamera = PerspectiveCamera(camera_input, position, lookat)
-    screen  = Screen(name,
-        area, parent, children, new_input,
-        renderlist, hidden, color,
-        Dict{Symbol, Any}(:perspective=>pcamera, :orthographic_pixel=>ocamera),
-        glcontext
-    )
+
     push!(parent.children, screen)
     screen
 end
+
 
 """
 On OSX retina screens, the window size is different from the
@@ -199,7 +182,7 @@ function create_glcontext(
         GLFW.WindowHint(wh...)
     end
 
-    @osx_only begin
+    @static if is_apple()
         if debugging
             warn("OpenGL debug message callback not available on osx")
             debugging = false
@@ -207,7 +190,7 @@ function create_glcontext(
     end
     GLFW.WindowHint(GLFW.OPENGL_DEBUG_CONTEXT, Cint(debugging))
 
-    window = GLFW.CreateWindow(resolution..., utf8(name))
+    window = GLFW.CreateWindow(resolution..., Compat.String(name))
     GLFW.MakeContextCurrent(window)
 
     debugging && glDebugMessageCallbackARB(_openglerrorcallback, C_NULL)
@@ -265,6 +248,7 @@ function Screen(name = "GLWindow";
         Signal(window_size), Signal(framebuffer_size), cursor_position
     )
     signal_dict[:mouse2id] = Signal(SelectionID{Int}(-1, -1))
+
     # TODO: free when context is freed. We don't have a good abstraction of a gl context yet, though
     # (It could be shared, so it does not map directly to one screen)
     preserve(map(signal_dict[:window_open]) do open
@@ -273,12 +257,15 @@ function Screen(name = "GLWindow";
         end
         nothing
     end)
-
+    GLFW.SwapInterval(0) # deactivating vsync seems to make everything quite a bit smoother
     screen = Screen(Symbol(name),
         window_area, Screen[], signal_dict,
         (), false, color,
         Dict{Symbol, Any}(),
         GLContext(window, GLFramebuffer(framebuffer_size))
+    )
+    signal_dict[:mouseinside] = droprepeats(
+        const_lift(isinside, screen, signal_dict[:mouseposition])
     )
     screen
 end
@@ -350,6 +337,11 @@ Empties the content of the renderlist
 """
 function Base.empty!(s::Screen)
     s.renderlist = ()
+    for c in s.children
+        empty!(c)
+    end
+    empty!(s.children)
+    nothing
 end
 
 """
@@ -357,4 +349,39 @@ returns a copy of the renderlist
 """
 function GLAbstraction.renderlist(s::Screen)
     vcat(s.renderlist...)
+end
+function destroy!(screen::Screen)
+    empty!(screen)
+    nw = nativewindow(screen)
+    if nw.handle != C_NULL
+        GLFW.DestroyWindow(nw)
+        nw.handle = C_NULL
+    end
+end
+
+get_id(x::Integer) = x
+get_id(x::RenderObject) = x.id
+function delete_robj!(list, robj)
+    for (i, id) in enumerate(list)
+        if get_id(id) == robj.id
+            splice!(list, i)
+            return true, i
+        end
+    end
+    false, 0
+end
+
+function Base.delete!(screen::Screen, robj::RenderObject)
+    for renderlist in screen.renderlist
+        deleted, i = delete_robj!(renderlist, robj)
+        deleted && return true
+    end
+    false
+end
+
+function GLAbstraction.robj_from_camera(window, camera)
+    cam = window.cameras[camera]
+    return filter(renderlist(window)) do robj
+        robj[:projection] == cam.projection
+    end
 end

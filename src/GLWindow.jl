@@ -51,6 +51,7 @@ export screenbuffer
 export zeroposition
 export create_glcontext
 export renderlist
-
+export destroy!
+export robj_from_camera
 
 end
