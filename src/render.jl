@@ -31,9 +31,7 @@ function renderloop(window::Screen)
         swapbuffers(window)
         GLFW.PollEvents()
     end
-    empty!(window)
-    yield()
-    GLFW.DestroyWindow(nativewindow(window))
+    destroy!(window)
 end
 
 function prepare(fb::GLFramebuffer)
