@@ -307,6 +307,7 @@ function Base.isopen(window::Screen)
     isopen(nativewindow(window))
 end
 function Base.isopen(window::GLFW.Window)
+    window.handle == C_NULL && return false
     !GLFW.WindowShouldClose(window)
 end
 """
@@ -316,7 +317,9 @@ function swapbuffers(window::Screen)
     swapbuffers(nativewindow(window))
 end
 function swapbuffers(window::GLFW.Window)
+    window.handle == C_NULL && return
     GLFW.SwapBuffers(window)
+    return
 end
 """
 Poll events on the screen which will propogate signals through react.

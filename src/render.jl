@@ -30,6 +30,7 @@ function renderloop(window::Screen)
         render_frame(window)
         swapbuffers(window)
         GLFW.PollEvents()
+        yield()
     end
     destroy!(window)
 end
