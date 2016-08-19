@@ -15,6 +15,15 @@ function draw_fullscreen(vao_id)
     glDrawArrays(GL_TRIANGLES, 0, 3)
     glBindVertexArray(0)
 end
+immutable PostprocessPrerender
+end
+@compat function (sp::PostprocessPrerender)()
+    glDisable(GL_DEPTH_TEST)
+    glDisable(GL_BLEND)
+    glDisable(GL_STENCIL_TEST)
+    glStencilMask(0xff)
+    glDisable(GL_CULL_FACE)
+end
 """
 Creates a postprocessing render object.
 This will transfer the pixels from the color texture of the Framebuffer
@@ -29,7 +38,7 @@ function postprocess(color::Texture, framebuffer_size)
     data = Dict{Symbol, Any}(
         :color_texture => color
     )
-    robj = RenderObject(data, shader, EmptyPrerender(), nothing)
+    robj = RenderObject(data, shader, PostprocessPrerender(), nothing)
     robj.postrenderfunction = () -> draw_fullscreen(robj.vertexarray.id)
     robj
 end

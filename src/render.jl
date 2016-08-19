@@ -19,6 +19,8 @@ function render_frame(window)
     resize!(fb, wh)
     prepare(fb)
     glViewport(0,0, wh...)
+    glClearColor(1,1,1,1)
+    glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT)
     render(window)
     #Read all the selection queries
     push_selectionqueries!(window)
