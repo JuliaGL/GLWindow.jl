@@ -260,7 +260,7 @@ function Screen(name = "GLWindow";
         const_lift(isinside, screen, screen.inputs[:mouseposition])
     )
     GLFW.SwapInterval(0) # deactivating vsync seems to make everything quite a bit smoother
-    #Reactive.stop()
+    Reactive.stop()
     screen
 end
 

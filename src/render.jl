@@ -93,14 +93,14 @@ function render_frame(window)
     render(fxaa_pass)
 
     # swap buffers and poll GLFW events
-    #GLFW.PollEvents()
-    #yield()
+    GLFW.PollEvents()
+    yield()
     #GLFW.WaitEvents()
     #@threadcall((:glfwWaitEvents, GLFW.lib), Void, ())
-    #Reactive.run_timer()
-    #Reactive.run_till_now()
+    Reactive.run_timer()
+    Reactive.run_till_now()
     #Reactive.run_till_now() # execute secondary cycled events!
-    #swapbuffers(window)
+    swapbuffers(window)
     nothing
 end
 
