@@ -19,8 +19,6 @@ function render_frame(window)
     resize!(fb, wh)
     prepare(fb)
     glViewport(0,0, wh...)
-    glClearColor(1,1,1,1)
-    glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT)
     render(window)
     #Read all the selection queries
     push_selectionqueries!(window)
@@ -57,9 +55,9 @@ function GLAbstraction.render(x::Screen, parent::Screen=x, context=x.area.value)
         pa    = context
         sa_pa = intersect(pa, sa) # intersection with parent
         if (
-            sa_pa != SimpleRectangle(0,0,0,0) && # if it is in the parent area
-            (sa_pa.w > 0 && sa_pa.h > 0)
-        ) # if it is in the parent area
+                sa_pa != SimpleRectangle(0,0,0,0) && # if it is in the parent area
+                (sa_pa.w > 0 && sa_pa.h > 0)
+            ) # if it is in the parent area
             glEnable(GL_SCISSOR_TEST)
             glScissor(sa_pa)
             glViewport(sa)
@@ -69,7 +67,6 @@ function GLAbstraction.render(x::Screen, parent::Screen=x, context=x.area.value)
                 colorbits = colorbits | GL_COLOR_BUFFER_BIT
             end
             glClear(colorbits)
-
             render(x.renderlist)
             for window in x.children
                 render(window, x, sa)

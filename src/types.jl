@@ -93,13 +93,13 @@ immutable MonitorProperties
 end
 
 function MonitorProperties(monitor::Monitor)
-    name 		 = GLFW.GetMonitorName(monitor)
-    isprimary 	 = GLFW.GetPrimaryMonitor() == monitor
-    position	 = Vec{2, Int}(GLFW.GetMonitorPos(monitor)...)
+    name          = GLFW.GetMonitorName(monitor)
+    isprimary      = GLFW.GetPrimaryMonitor() == monitor
+    position     = Vec{2, Int}(GLFW.GetMonitorPos(monitor)...)
     physicalsize = Vec{2, Int}(GLFW.GetMonitorPhysicalSize(monitor)...)
-    videomode 	 = GLFW.GetVideoMode(monitor)
+    videomode      = GLFW.GetVideoMode(monitor)
 
-    dpi			 = Vec(videomode.width * 25.4, videomode.height * 25.4) ./ Vec{2, Float64}(physicalsize)
+    dpi             = Vec(videomode.width * 25.4, videomode.height * 25.4) ./ Vec{2, Float64}(physicalsize)
     videomode_supported = GLFW.GetVideoModes(monitor)
 
     MonitorProperties(name, isprimary, position, physicalsize, videomode, videomode_supported, dpi, monitor)
@@ -113,30 +113,30 @@ end
 
 
 type Screen
-    name 		::Symbol
-    area 		::Signal{SimpleRectangle{Int}}
-    parent 		::Screen
-    children 	::Vector{Screen}
-    inputs 		::Dict{Symbol, Any}
-    renderlist 	::Tuple # a tuple of specialized renderlists
+    name        ::Symbol
+    area        ::Signal{SimpleRectangle{Int}}
+    parent      ::Screen
+    children    ::Vector{Screen}
+    inputs      ::Dict{Symbol, Any}
+    renderlist  ::Tuple # a tuple of specialized renderlists
 
-    hidden 		::Bool
+    hidden      ::Bool
     color       ::RGBA{Float32}
 
-    cameras 	::Dict{Symbol, Any}
+    cameras     ::Dict{Symbol, Any}
 
     glcontext   ::GLContext
 
     function Screen(
             name        ::Symbol,
             area        ::Signal{SimpleRectangle{Int}},
-            parent 		::Screen,
-            children 	::Vector{Screen},
-            inputs 		::Dict{Symbol, Any},
-            renderlist 	::Tuple,
-            hidden 		::Bool,
+            parent      ::Screen,
+            children    ::Vector{Screen},
+            inputs      ::Dict{Symbol, Any},
+            renderlist  ::Tuple,
+            hidden      ::Bool,
             color       ::Colorant,
-            cameras 	::Dict{Symbol, Any},
+            cameras     ::Dict{Symbol, Any},
             context     ::GLContext
         )
         new(
@@ -158,12 +158,16 @@ type Screen
             cameras     ::Dict{Symbol, Any},
             context     ::GLContext
         )
-        parent = new()
-        new(
-            name, area, parent,
-            children, inputs, renderlist,
-            hidden, RGBA{Float32}(color), cameras,
-            context
-        )
+        screen = new()
+        screen.name = name
+        screen.area = area
+        screen.children = children
+        screen.inputs = inputs
+        screen.renderlist = renderlist
+        screen.hidden = hidden
+        screen.color = RGBA{Float32}(color)
+        screen.cameras = cameras
+        screen.glcontext = context
+        screen
     end
 end

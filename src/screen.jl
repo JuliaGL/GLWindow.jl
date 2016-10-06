@@ -321,6 +321,17 @@ function swapbuffers(window::GLFW.Window)
     GLFW.SwapBuffers(window)
     return
 end
+function Base.resize!(x::Screen, w::Int, h::Int)
+    if isroot(x)
+        resize!(GLWindow.nativewindow(x), w, h)
+    end
+    area = value(x.area)
+    push!(x.area, SimpleRectangle(area.x, area.y, w, h))
+end
+function Base.resize!(x::GLFW.Window, w::Int, h::Int)
+    GLFW.SetWindowSize(x, w, h)
+end
+
 """
 Poll events on the screen which will propogate signals through react.
 """
@@ -387,4 +398,8 @@ function GLAbstraction.robj_from_camera(window, camera)
     return filter(renderlist(window)) do robj
         robj[:projection] == cam.projection
     end
+end
+
+function isroot(s::Screen)
+    !isdefined(s, :parent)
 end
