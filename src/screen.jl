@@ -365,6 +365,13 @@ function GLAbstraction.renderlist(s::Screen)
     vcat(s.renderlist...)
 end
 function destroy!(screen::Screen)
+    # close signals
+    for (k, s) in screen.inputs
+        close(s, false)
+    end
+    for child in screen.children
+        destroy!(child)
+    end
     empty!(screen)
     nw = nativewindow(screen)
     if nw.handle != C_NULL
