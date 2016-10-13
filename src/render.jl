@@ -12,20 +12,6 @@ function clear_all!(window)
     glClear(GL_COLOR_BUFFER_BIT)
 end
 
-"""
-Renders a single frame of a `window`
-"""
-function render_frame(window)
-    fb = framebuffer(window)
-    wh = widths(window)
-    resize!(fb, wh)
-    prepare(fb)
-    glViewport(0,0, wh...)
-    render(window)
-    #Read all the selection queries
-    push_selectionqueries!(window)
-    display(fb, window)
-end
 
 function renderloop(window::Screen)
     while isopen(window)
@@ -37,20 +23,50 @@ function renderloop(window::Screen)
     destroy!(window)
 end
 
-function prepare(fb::GLFramebuffer)
+"""
+Renders a single frame of a `window`
+"""
+function render_frame(window)
+    fb = framebuffer(window)
+    wh = widths(window)
+    resize!(fb, wh)
+    #prepare for geometry in need of anti aliasing
     glDisable(GL_SCISSOR_TEST)
     glBindFramebuffer(GL_FRAMEBUFFER, fb.id1)
     glDrawBuffers(2, [GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1])
+    glViewport(0,0, wh...)
+
+    render(window)
+
+    # transfer color to final buffer and to fxaa
+    glDisable(GL_SCISSOR_TEST)
+    glBindFramebuffer(GL_FRAMEBUFFER, fb.id2) # luma
+    glDrawBuffer(GL_COLOR_ATTACHMENT0)
+    glViewport(0,0, widths(window)...)
+    render(fb.postprocess[1]) # add luma and preprocess
+    glBindFramebuffer(GL_FRAMEBUFFER, fb.id1) # transfer back to initial color target with fxaa
+    glDrawBuffer(GL_COLOR_ATTACHMENT0)
+    render(fb.postprocess[2])
+
+    # prepare for non anti aliasing pass
+    glDisable(GL_SCISSOR_TEST)
+    glBindFramebuffer(GL_FRAMEBUFFER, fb.id1)
+    glDrawBuffers(2, [GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1])
+    glViewport(0,0, wh...)
+
+    #Read all the selection queries
+    push_selectionqueries!(window)
+    display(fb, window)
+end
+
+
+
+function prepare(fb::GLFramebuffer)
+
 end
 
 function display(fb::GLFramebuffer, window)
-    glDisable(GL_SCISSOR_TEST)
-    glBindFramebuffer(GL_FRAMEBUFFER, fb.id2)
-    glDrawBuffer(GL_COLOR_ATTACHMENT0)
-    glViewport(0,0, widths(window)...)
-    render(fb.postprocess[1])
-    glBindFramebuffer(GL_FRAMEBUFFER, 0)
-    render(fb.postprocess[2])
+
 end
 
 function GLAbstraction.render(x::Screen, parent::Screen=x, context=x.area.value)
