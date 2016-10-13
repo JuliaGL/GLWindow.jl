@@ -3,9 +3,11 @@ function clear_all!(window)
     wh = widths(window)
     glViewport(0,0, wh...)
     fb = framebuffer(window)
-    glBindFramebuffer(GL_FRAMEBUFFER, fb.id)
+    glBindFramebuffer(GL_FRAMEBUFFER, fb.id1)
     glDrawBuffers(2, [GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1])
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+    glBindFramebuffer(GL_FRAMEBUFFER, fb.id2)
+    glClear(GL_COLOR_BUFFER_BIT)
     glBindFramebuffer(GL_FRAMEBUFFER, 0)
     glClear(GL_COLOR_BUFFER_BIT)
 end
@@ -29,7 +31,7 @@ function renderloop(window::Screen)
     while isopen(window)
         render_frame(window)
         swapbuffers(window)
-        GLFW.PollEvents()
+        pollevents()
         yield()
     end
     destroy!(window)
@@ -37,15 +39,18 @@ end
 
 function prepare(fb::GLFramebuffer)
     glDisable(GL_SCISSOR_TEST)
-    glBindFramebuffer(GL_FRAMEBUFFER, fb.id)
+    glBindFramebuffer(GL_FRAMEBUFFER, fb.id1)
     glDrawBuffers(2, [GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1])
 end
 
 function display(fb::GLFramebuffer, window)
     glDisable(GL_SCISSOR_TEST)
-    glBindFramebuffer(GL_FRAMEBUFFER, 0)
+    glBindFramebuffer(GL_FRAMEBUFFER, fb.id2)
+    glDrawBuffer(GL_COLOR_ATTACHMENT0)
     glViewport(0,0, widths(window)...)
-    render(fb.postprocess)
+    render(fb.postprocess[1])
+    glBindFramebuffer(GL_FRAMEBUFFER, 0)
+    render(fb.postprocess[2])
 end
 
 function GLAbstraction.render(x::Screen, parent::Screen=x, context=x.area.value)

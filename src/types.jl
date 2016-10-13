@@ -1,10 +1,12 @@
 
-type GLFramebuffer
-    id         ::GLuint
+type GLFramebuffer{T}
+    id1        ::GLuint
+    id2        ::GLuint
     color      ::Texture{RGBA{UFixed8}, 2}
     objectid   ::Texture{Vec{2, GLushort}, 2}
     depth      ::Texture{Float32, 2}
-    postprocess::RenderObject
+    color_luma ::Texture{RGBA{UFixed8}, 2}
+    postprocess::T
 end
 Base.size(fb::GLFramebuffer) = size(fb.color) # it's guaranteed, that they all have the same size
 
@@ -24,23 +26,39 @@ end
     glStencilMask(0xff)
     glDisable(GL_CULL_FACE)
 end
+
+
+
+rcpframe(x) = 1f0./Vec2f0(x[1], x[2])
+
 """
 Creates a postprocessing render object.
 This will transfer the pixels from the color texture of the Framebuffer
 to the screen and while at it, it can do some postprocessing (not doing it right now):
 E.g fxaa anti aliasing, color correction etc.
 """
-function postprocess(color::Texture, framebuffer_size)
-    shader = LazyShader(
-        loadshader("fxaa.vert"),
-        loadshader("fxaa_combine.frag")
+function postprocess(color::Texture, color_luma::Texture, framebuffer_size)
+    shader1 = LazyShader(
+        loadshader("fullscreen.vert"),
+        loadshader("postprocess.frag")
     )
-    data = Dict{Symbol, Any}(
+    data1 = Dict{Symbol, Any}(
         :color_texture => color
     )
-    robj = RenderObject(data, shader, PostprocessPrerender(), nothing)
-    robj.postrenderfunction = () -> draw_fullscreen(robj.vertexarray.id)
-    robj
+    pass1 = RenderObject(data1, shader1, PostprocessPrerender(), nothing)
+    pass1.postrenderfunction = () -> draw_fullscreen(pass1.vertexarray.id)
+
+    shader2 = LazyShader(
+        loadshader("fullscreen.vert"),
+        loadshader("fxaa.frag")
+    )
+    data2 = Dict{Symbol, Any}(
+        :color_texture => color_luma,
+        :RCPFrame => map(rcpframe, framebuffer_size)
+    )
+    pass2 = RenderObject(data2, shader2, PostprocessPrerender(), nothing)
+    pass2.postrenderfunction = () -> draw_fullscreen(pass2.vertexarray.id)
+    (pass1, pass2)
 end
 
 function attach_framebuffer{T}(t::Texture{T, 2}, attachment)
@@ -63,8 +81,18 @@ function GLFramebuffer(fb_size)
     attach_framebuffer(objectid_buffer, GL_COLOR_ATTACHMENT1)
     attach_framebuffer(depth_buffer, GL_DEPTH_ATTACHMENT)
 
-    p  = postprocess(color_buffer, fb_size)
-    fb = GLFramebuffer(render_framebuffer, color_buffer, objectid_buffer, depth_buffer, p)
+    color_luma = Texture(RGBA{UFixed8}, buffersize, minfilter=:linear, x_repeat=:clamp_to_edge)
+    color_luma_framebuffer = glGenFramebuffers()
+    glBindFramebuffer(GL_FRAMEBUFFER, color_luma_framebuffer)
+    attach_framebuffer(color_luma, GL_COLOR_ATTACHMENT0)
+
+    p  = postprocess(color_buffer, color_luma, fb_size)
+    fb = GLFramebuffer(
+        render_framebuffer, color_luma_framebuffer,
+        color_buffer, objectid_buffer, depth_buffer,
+        color_luma,
+        p
+    )
     glBindFramebuffer(GL_FRAMEBUFFER, 0)
     fb
 end
@@ -74,6 +102,7 @@ function Base.resize!(fb::GLFramebuffer, window_size)
     if ws!=size(fb) && all(x->x>0, window_size)
         buffersize = tuple(window_size...)
         resize_nocopy!(fb.color, buffersize)
+        resize_nocopy!(fb.color_luma, buffersize)
         resize_nocopy!(fb.objectid, buffersize)
         resize_nocopy!(fb.depth, buffersize)
     end
@@ -93,13 +122,13 @@ immutable MonitorProperties
 end
 
 function MonitorProperties(monitor::Monitor)
-    name          = GLFW.GetMonitorName(monitor)
-    isprimary      = GLFW.GetPrimaryMonitor() == monitor
-    position     = Vec{2, Int}(GLFW.GetMonitorPos(monitor)...)
+    name = GLFW.GetMonitorName(monitor)
+    isprimary = GLFW.GetPrimaryMonitor() == monitor
+    position = Vec{2, Int}(GLFW.GetMonitorPos(monitor)...)
     physicalsize = Vec{2, Int}(GLFW.GetMonitorPhysicalSize(monitor)...)
-    videomode      = GLFW.GetVideoMode(monitor)
+    videomode = GLFW.GetVideoMode(monitor)
 
-    dpi             = Vec(videomode.width * 25.4, videomode.height * 25.4) ./ Vec{2, Float64}(physicalsize)
+    dpi = Vec(videomode.width * 25.4, videomode.height * 25.4) ./ Vec{2, Float64}(physicalsize)
     videomode_supported = GLFW.GetVideoModes(monitor)
 
     MonitorProperties(name, isprimary, position, physicalsize, videomode, videomode_supported, dpi, monitor)
