@@ -20,6 +20,7 @@ end
 immutable PostprocessPrerender
 end
 @compat function (sp::PostprocessPrerender)()
+    glDepthMask(GL_TRUE)
     glDisable(GL_DEPTH_TEST)
     glDisable(GL_BLEND)
     glDisable(GL_STENCIL_TEST)
@@ -58,12 +59,26 @@ function postprocess(color::Texture, color_luma::Texture, framebuffer_size)
     )
     pass2 = RenderObject(data2, shader2, PostprocessPrerender(), nothing)
     pass2.postrenderfunction = () -> draw_fullscreen(pass2.vertexarray.id)
-    (pass1, pass2)
+
+    shader3 = LazyShader(
+        GLWindow.loadshader("fullscreen.vert"),
+        GLWindow.loadshader("copy.frag")
+    )
+    data3 = Dict{Symbol, Any}(
+        :color_texture => color
+    )
+    pass3 = RenderObject(data3, shader3, GLWindow.PostprocessPrerender(), nothing)
+    pass3.postrenderfunction = () -> GLWindow.draw_fullscreen(pass3.vertexarray.id)
+
+
+    (pass1, pass2, pass3)
 end
 
 function attach_framebuffer{T}(t::Texture{T, 2}, attachment)
     glFramebufferTexture2D(GL_FRAMEBUFFER, attachment, GL_TEXTURE_2D, t.id, 0)
 end
+
+
 
 function GLFramebuffer(fb_size)
     render_framebuffer = glGenFramebuffers()
@@ -72,14 +87,15 @@ function GLFramebuffer(fb_size)
     buffersize      = tuple(value(fb_size)...)
     color_buffer    = Texture(RGBA{UFixed8},    buffersize, minfilter=:nearest, x_repeat=:clamp_to_edge)
     objectid_buffer = Texture(Vec{2, GLushort}, buffersize, minfilter=:nearest, x_repeat=:clamp_to_edge)
+    stencil         = Texture(U8, buffersize, minfilter=:nearest, x_repeat=:clamp_to_edge)
     depth_buffer    = Texture(Float32, buffersize,
-        internalformat = GL_DEPTH_COMPONENT32F,
-        format         = GL_DEPTH_COMPONENT,
+        internalformat = GL_DEPTH24_STENCIL8,
+        format         = GL_DEPTH_STENCIL,
         minfilter=:nearest, x_repeat=:clamp_to_edge
     )
     attach_framebuffer(color_buffer, GL_COLOR_ATTACHMENT0)
     attach_framebuffer(objectid_buffer, GL_COLOR_ATTACHMENT1)
-    attach_framebuffer(depth_buffer, GL_DEPTH_ATTACHMENT)
+    attach_framebuffer(depth_buffer, GL_DEPTH_STENCIL_ATTACHMENT)
 
     color_luma = Texture(RGBA{UFixed8}, buffersize, minfilter=:linear, x_repeat=:clamp_to_edge)
     color_luma_framebuffer = glGenFramebuffers()
@@ -139,15 +155,21 @@ immutable GLContext
     framebuffer::GLFramebuffer
 end
 
-
-
+global new_id
+let counter::Int = 0
+    function new_id()
+        counter += 1
+        counter
+    end
+end
 type Screen
     name        ::Symbol
     area        ::Signal{SimpleRectangle{Int}}
     parent      ::Screen
     children    ::Vector{Screen}
     inputs      ::Dict{Symbol, Any}
-    renderlist  ::Tuple # a tuple of specialized renderlists
+    renderlist_fxaa::Tuple # a tuple of specialized renderlists
+    renderlist     ::Tuple # a tuple of specialized renderlists
 
     hidden      ::Bool
     color       ::RGBA{Float32}
@@ -155,6 +177,7 @@ type Screen
     cameras     ::Dict{Symbol, Any}
 
     glcontext   ::GLContext
+    id          ::Int
 
     function Screen(
             name        ::Symbol,
@@ -170,9 +193,9 @@ type Screen
         )
         new(
             name, area, parent,
-            children, inputs, renderlist,
+            children, inputs, (), renderlist,
             hidden, RGBA{Float32}(color), cameras,
-            context
+            context, new_id()
         )
     end
 
@@ -193,10 +216,12 @@ type Screen
         screen.children = children
         screen.inputs = inputs
         screen.renderlist = renderlist
+        screen.renderlist_fxaa = ()
         screen.hidden = hidden
         screen.color = RGBA{Float32}(color)
         screen.cameras = cameras
         screen.glcontext = context
+        screen.id = new_id()
         screen
     end
 end

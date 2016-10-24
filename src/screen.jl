@@ -351,10 +351,17 @@ Empties the content of the renderlist
 """
 function Base.empty!(s::Screen)
     s.renderlist = ()
-    for c in s.children
-        empty!(c)
+    s.renderlist_fxaa = ()
+    for (k, cam) in s.cameras
+        for n in fieldnames(cam)
+            field = getfield(cam, n)
+            if isa(field, Signal)
+                close(field, false)
+            end
+        end
     end
-    empty!(s.children)
+    empty!(s.cameras)
+    foreach(destroy!, copy(s.children)) # children delete themselves from s.children
     nothing
 end
 
@@ -362,21 +369,27 @@ end
 returns a copy of the renderlist
 """
 function GLAbstraction.renderlist(s::Screen)
-    vcat(s.renderlist...)
+    vcat(s.renderlist..., s.renderlist_fxaa...)
 end
 function destroy!(screen::Screen)
+    empty!(screen) # remove all children and renderobjects
     # close signals
-    for (k, s) in screen.inputs
-        close(s, false)
-    end
-    for child in screen.children
-        destroy!(child)
-    end
-    empty!(screen)
-    nw = nativewindow(screen)
-    if nw.handle != C_NULL
-        GLFW.DestroyWindow(nw)
-        nw.handle = C_NULL
+    empty!(screen.cameras)
+    if isroot(screen) # close gl context (aka ultimate parent)
+        for (k, s) in screen.inputs
+            close(s, false)
+        end
+        nw = nativewindow(screen)
+        if nw.handle != C_NULL
+            GLFW.DestroyWindow(nw)
+            nw.handle = C_NULL
+        end
+    else # delete from parent
+        for (k, s) in screen.inputs
+            Reactive.unpreserve(s)
+        end
+        #empty!(screen.inputs)
+        filter!(s-> !(s===screen), screen.parent.children) # remove from parent
     end
 end
 
@@ -409,4 +422,23 @@ end
 
 function isroot(s::Screen)
     !isdefined(s, :parent)
+end
+
+
+
+function Base.push!{Pre}(screen::Screen, robj::RenderObject{Pre})
+    # since fxaa is the default, if :fxaa not in uniforms --> needs fxaa
+    sym = Bool(get(robj.uniforms, :fxaa, true)) ? :renderlist_fxaa : :renderlist
+    # find renderlist specialized to current prerender function
+    index = findfirst(getfield(screen, sym)) do renderlist
+        prerendertype(eltype(renderlist)) == Pre
+    end
+    if index == 0
+        # add new specialised renderlist, if none found
+        setfield!(screen, sym, (getfield(screen, sym)..., RenderObject{Pre}[]))
+        index = length(getfield(screen, sym))
+    end
+    # only add to renderlist if not already in there
+    in(robj, getfield(screen, sym)[index]) || push!(getfield(screen, sym)[index], robj)
+    nothing
 end
