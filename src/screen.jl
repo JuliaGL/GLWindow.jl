@@ -275,8 +275,9 @@ Function that creates a screenshot from `window` and saves it to `path`.
 You can choose the channel of the framebuffer, which is usually:
 `color`, `depth` and `objectid`
 """
-screenshot(window; path="screenshot.png", channel=:color) =
-   save(path, screenbuffer(window, channel), true)
+function screenshot(window; path="screenshot.png", channel=:color)
+    save(path, screenbuffer(window, channel), true)
+end
 
 """
 Returns the contents of the framebuffer of `window` as a Julia Array.
@@ -287,7 +288,7 @@ function screenbuffer(window, channel=:color)
     fb = framebuffer(window)
     channels = fieldnames(fb)[2:end]
     if channel in channels
-        img = gpu_data(getfield(fb, channel))[window.area.value]
+        img = gpu_data(getfield(fb, channel))[abs_area(window)]
         return rotl90(img)
     end
     error("Channel $channel does not exist. Only these channels are available: $channels")
@@ -356,7 +357,7 @@ function Base.empty!(s::Screen)
         for n in fieldnames(cam)
             field = getfield(cam, n)
             if isa(field, Signal)
-                close(field, false)
+                #close(field, false)
             end
         end
     end
@@ -374,10 +375,10 @@ end
 function destroy!(screen::Screen)
     empty!(screen) # remove all children and renderobjects
     # close signals
-    empty!(screen.cameras)
+    #empty!(screen.cameras)
     if isroot(screen) # close gl context (aka ultimate parent)
         for (k, s) in screen.inputs
-            close(s, false)
+            #close(s, false)
         end
         nw = nativewindow(screen)
         if nw.handle != C_NULL
@@ -423,8 +424,22 @@ end
 function isroot(s::Screen)
     !isdefined(s, :parent)
 end
+function rootscreen(s::Screen)
+    while !isroot(s)
+        s = s.parent
+    end
+    s
+end
 
-
+function abs_area(s::Screen)
+    area = value(s.area)
+    while !isroot(s)
+        s = s.parent
+        pa = value(s.area)
+        area = SimpleRectangle(area.x+pa.x, area.y+pa.y, area.w, area.h)
+    end
+    area
+end
 
 function Base.push!{Pre}(screen::Screen, robj::RenderObject{Pre})
     # since fxaa is the default, if :fxaa not in uniforms --> needs fxaa

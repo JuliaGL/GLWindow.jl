@@ -21,6 +21,7 @@ function renderloop(window::Screen)
         yield()
     end
     destroy!(window)
+    nothing
 end
 
 immutable BreadthFirstIter
@@ -47,29 +48,50 @@ function Base.next(iter::BreadthFirstIter, state)
     end
 end
 
+
+
 global get_shape
-let _shape_cache = RenderObject[]
+function shape_prerender()
+    glDisable(GL_DEPTH_TEST)
+    glDepthMask(GL_FALSE)
+    glDisable(GL_CULL_FACE)
+    glDisable(GL_BLEND)
+end
+
+let _shape_cache = []
     function get_shape()
         if isempty(_shape_cache)
-            push!(_shape_cache, visualize((RECTANGLE, Point2f0[0])))
+            robj =  Main.GLVisualize.visualize(
+                SimpleRectangle(-1, -1, 2, 2),
+                projection=eye(Mat4f0),
+                view=eye(Mat4f0)
+            ).children[]
+            _robj = RenderObject{typeof(shape_prerender)}(
+                robj.main, robj.uniforms, robj.vertexarray,
+                shape_prerender, robj.postrenderfunction,
+                robj.boundingbox
+            )
+            push!(_shape_cache, _robj)
         end
         _shape_cache[]
     end
 end
-
-
-function setup_window(window)
-    glStencilFunc(GL_ALWAYS, window.id, 0xFF)
-    shape = get_shape()
-    area = window.area.value
-    shape[:color] = window.color
-    #shape[:stroke_width] = window.stroke
-    shape[:position] = Point2f0(minimum(area))
-    shape[:scale] = Vec2f0(widths(area))
-    render(shape)
-
-    for elem in window.children
-        setup_window(window)
+function absolute_pos(w::Screen)
+end
+function setup_window(window, pa=value(window.area))
+    if isopen(window) && !ishidden(window)
+        glStencilFunc(GL_ALWAYS, window.id, 0xff)
+        shape = get_shape()
+        sa = value(window.area)
+        sa = SimpleRectangle(pa.x+sa.x, pa.y+sa.y, sa.w, sa.h)
+        #@show sa
+        glViewport(sa) # children are in relative coordinates
+        shape[:color] = window.color
+        #shape[:stroke_width] = window.stroke
+        render(shape)
+        for elem in window.children
+            setup_window(elem, sa)
+        end
     end
 end
 
@@ -81,26 +103,29 @@ function render_frame(window)
 
     wh = widths(window)
     resize!(fb, wh)
-
+    w, h = wh
     #prepare for geometry in need of anti aliasing
     glBindFramebuffer(GL_FRAMEBUFFER, fb.id1)
     glDrawBuffers(2, [GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1])
-
-
     # setup stencil and backgrounds
-    setup_window(window)
+    glEnable(GL_STENCIL_TEST)
     glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE)
-    glStencilMask(0xFF)
+    glStencilMask(0xff)
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+    glClear(GL_STENCIL_BUFFER_BIT)
+    glViewport(0, 0, w, h)
+    setup_window(window)
 
-
-
+    # deactivate stencil write
+    glEnable(GL_STENCIL_TEST)
+    glStencilMask(0x00)
     GLAbstraction.render(window, true)
+    glDisable(GL_STENCIL_TEST)
 
     # transfer color to final buffer and to fxaa
     glBindFramebuffer(GL_FRAMEBUFFER, fb.id2) # luma
     glDrawBuffer(GL_COLOR_ATTACHMENT0)
-    glDisable(GL_SCISSOR_TEST)
-    glViewport(0,0, widths(window)...)
+    glViewport(0, 0, w, h)
     GLAbstraction.render(fb.postprocess[1]) # add luma and preprocess
 
     glBindFramebuffer(GL_FRAMEBUFFER, fb.id1) # transfer back to initial color target with fxaa
@@ -108,12 +133,15 @@ function render_frame(window)
     GLAbstraction.render(fb.postprocess[2])
 
     #prepare for non anti aliasing pass
-    glBindFramebuffer(GL_FRAMEBUFFER, fb.fb.id2)
+    glBindFramebuffer(GL_FRAMEBUFFER, fb.id1)
     glDrawBuffers(2, [GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1])
+    glEnable(GL_STENCIL_TEST)
+    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE)
+    glStencilMask(0x00)
     GLAbstraction.render(window, false)
+    glDisable(GL_STENCIL_TEST)
 
     glViewport(0,0, wh...)
-    glDisable(GL_SCISSOR_TEST)
     #Read all the selection queries
     GLWindow.push_selectionqueries!(window)
     glBindFramebuffer(GL_FRAMEBUFFER, 0) # transfer back to window
@@ -132,23 +160,13 @@ function GLAbstraction.render(x::Screen, fxaa::Bool, parent::Screen=x, context=x
                 sa_pa != SimpleRectangle(0,0,0,0) && # if it is in the parent area
                 (sa_pa.w > 0 && sa_pa.h > 0)
             ) # if it is in the parent area
-            glStencilFunc(GL_EQUAL, x.id, 0xFF)
-            glEnable(GL_SCISSOR_TEST)
-            glScissor(sa_pa)
             glViewport(sa)
-
+            glStencilFunc(GL_EQUAL, x.id, 0xff)
             if fxaa # only clear in fxaa pass, because it gets called first
-                bits = GL_DEPTH_BUFFER_BIT
-                if alpha(x.color) > 0
-                    glClearColor(red(x.color), green(x.color), blue(x.color), alpha(x.color))
-                    bits = bits | GL_COLOR_BUFFER_BIT
-                end
-                glClear(bits)
                 render(x.renderlist_fxaa)
             else
                 render(x.renderlist)
             end
-
             for window in x.children
                 render(window, fxaa, x, sa)
             end
