@@ -22,6 +22,7 @@ function add_complex_signals!(screen)
         button_signals(no_scancode, :button),
         button_signals(mouse_buttons, :mouse_button)
     )
+
     #mousedragdiff_id = mousedragg_objectid(screen.inputs, mouse2id(screen))
     #selection        = foldp(drag2selectionrange, 0:0, mousedragdiff_id)
     arrow_navigation = const_lift(to_arrow_symbol, button_s[:buttons_pressed])
@@ -33,6 +34,10 @@ function add_complex_signals!(screen)
             :arrow_navigation    => arrow_navigation
         ),
         button_s
+    )
+    screen.inputs[:key_pressed] = const_lift(GLAbstraction.singlepressed,
+        screen.inputs[:mouse_buttons_pressed],
+        GLFW.MOUSE_BUTTON_LEFT
     )
     screen
 end
