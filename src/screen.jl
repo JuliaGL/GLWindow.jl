@@ -42,11 +42,12 @@ function Screen(
         cameras = Dict{Symbol, Any}(),
         position = Vec3f0(2),
         lookat = Vec3f0(0),
-        color = RGBA{Float32}(1,1,1,1)
+        color = RGBA{Float32}(1,1,1,1),
+        stroke = (0f0, color)
     )
     screen = Screen(name,
         area, parent, children, inputs,
-        renderlist, hidden, color,
+        renderlist, hidden, color, stroke,
         cameras, glcontext
     )
     pintersect = const_lift(x->intersect(zeroposition(value(parent.area)), x), area)
@@ -217,7 +218,9 @@ function Screen(name = "GLWindow";
         windowhints = standard_window_hints(),
         contexthints = standard_context_hints(major, minor),
         callbacks = standard_callbacks(),
-        color = RGBA{Float32}(1,1,1,1)
+        color = RGBA{Float32}(1,1,1,1),
+        stroke = (0f0, color),
+        hidden = false
     )
     # create glcontext
     window = create_glcontext(
@@ -226,7 +229,11 @@ function Screen(name = "GLWindow";
         major=major, minor=minor,
         windowhints=windowhints, contexthints=contexthints
     )
-    GLFW.ShowWindow(window)
+    if !hidden
+        GLFW.ShowWindow(window)
+    else
+        GLFW.HideWindow(window)
+    end
 
     #create standard signals
     signal_dict = register_callbacks(window, callbacks)
@@ -258,9 +265,10 @@ function Screen(name = "GLWindow";
         nothing
     end)
     GLFW.SwapInterval(0) # deactivating vsync seems to make everything quite a bit smoother
-    screen = Screen(Symbol(name),
-        window_area, Screen[], signal_dict,
-        (), false, color,
+    screen = Screen(
+        Symbol(name), window_area, nothing,
+        Screen[], signal_dict,
+        (), hidden, color, stroke,
         Dict{Symbol, Any}(),
         GLContext(window, GLFramebuffer(framebuffer_size))
     )
@@ -351,17 +359,10 @@ end
 Empties the content of the renderlist
 """
 function Base.empty!(s::Screen)
-    s.renderlist = ()
-    s.renderlist_fxaa = ()
-    for (k, cam) in s.cameras
-        for n in fieldnames(cam)
-            field = getfield(cam, n)
-            if isa(field, Signal)
-                #close(field, false)
-            end
-        end
-    end
-    empty!(s.cameras)
+    # get a copy of the list
+    rlist = renderlist(s)
+    s.renderlist = () # remove references and empty lists
+    s.renderlist_fxaa = () # remove references and empty lists
     foreach(destroy!, copy(s.children)) # children delete themselves from s.children
     nothing
 end

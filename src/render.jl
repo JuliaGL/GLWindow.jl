@@ -50,7 +50,6 @@ end
 
 
 
-global get_shape
 function shape_prerender()
     glDisable(GL_DEPTH_TEST)
     glDepthMask(GL_FALSE)
@@ -58,22 +57,23 @@ function shape_prerender()
     glDisable(GL_BLEND)
 end
 
-let _shape_cache = []
-    function get_shape()
-        if isempty(_shape_cache)
-            robj =  Main.GLVisualize.visualize(
+global get_shape
+let _shape_cache = Dict{WeakRef, Any}()
+    function get_shape(window)
+        root = WeakRef(rootscreen(window)) # cache for root only
+        get!(_shape_cache, root) do
+            # jeez... But relying on GLVisualize creates a circular dependency -.-
+            robj = Main.GLVisualize.visualize(
                 SimpleRectangle(-1, -1, 2, 2),
                 projection=eye(Mat4f0),
                 view=eye(Mat4f0)
             ).children[]
-            _robj = RenderObject{typeof(shape_prerender)}(
+            RenderObject{typeof(shape_prerender)}(
                 robj.main, robj.uniforms, robj.vertexarray,
                 shape_prerender, robj.postrenderfunction,
                 robj.boundingbox
             )
-            push!(_shape_cache, _robj)
         end
-        _shape_cache[]
     end
 end
 function absolute_pos(w::Screen)
@@ -81,13 +81,14 @@ end
 function setup_window(window, pa=value(window.area))
     if isopen(window) && !ishidden(window)
         glStencilFunc(GL_ALWAYS, window.id, 0xff)
-        shape = get_shape()
+        shape = get_shape(window)
         sa = value(window.area)
         sa = SimpleRectangle(pa.x+sa.x, pa.y+sa.y, sa.w, sa.h)
         #@show sa
         glViewport(sa) # children are in relative coordinates
         shape[:color] = window.color
-        #shape[:stroke_width] = window.stroke
+        shape[:stroke_width] = -window.stroke[1] # negate to stroke inside window
+        shape[:stroke_color] = window.stroke[2]
         render(shape)
         for elem in window.children
             setup_window(elem, sa)

@@ -178,6 +178,7 @@ type Screen
 
     hidden      ::Bool
     color       ::RGBA{Float32}
+    stroke      ::Tuple{Float32, RGBA{Float32}}
 
     cameras     ::Dict{Symbol, Any}
 
@@ -187,35 +188,20 @@ type Screen
     function Screen(
             name        ::Symbol,
             area        ::Signal{SimpleRectangle{Int}},
-            parent      ::Screen,
+            parent      ::Union{Screen, Void},
             children    ::Vector{Screen},
             inputs      ::Dict{Symbol, Any},
             renderlist  ::Tuple,
             hidden      ::Bool,
             color       ::Colorant,
-            cameras     ::Dict{Symbol, Any},
-            context     ::GLContext
-        )
-        new(
-            name, area, parent,
-            children, inputs, (), renderlist,
-            hidden, RGBA{Float32}(color), cameras,
-            context, new_id()
-        )
-    end
-
-    function Screen(
-            name        ::Symbol,
-            area        ::Signal{SimpleRectangle{Int}},
-            children    ::Vector{Screen},
-            inputs      ::Dict{Symbol, Any},
-            renderlist  ::Tuple,
-            hidden      ::Bool,
-            color       ::Colorant,
+            stroke      ::Tuple,
             cameras     ::Dict{Symbol, Any},
             context     ::GLContext
         )
         screen = new()
+        if parent != nothing
+            screen.parent = parent
+        end
         screen.name = name
         screen.area = area
         screen.children = children
@@ -224,6 +210,7 @@ type Screen
         screen.renderlist_fxaa = ()
         screen.hidden = hidden
         screen.color = RGBA{Float32}(color)
+        screen.stroke = (Float32(stroke[1]), RGBA{Float32}(stroke[2]))
         screen.cameras = cameras
         screen.glcontext = context
         screen.id = new_id()
