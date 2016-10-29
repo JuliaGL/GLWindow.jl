@@ -1,10 +1,9 @@
 
-type GLFramebuffer{T}
-    id1        ::GLuint
-    id2        ::GLuint
+type GLFramebuffer{N, T}
+    id         ::NTuple{N, GLuint}
     color      ::Texture{RGBA{UFixed8}, 2}
     objectid   ::Texture{Vec{2, GLushort}, 2}
-    depth
+    depth      ::GLuint
     color_luma ::Texture{RGBA{UFixed8}, 2}
     postprocess::T
 end
@@ -38,7 +37,7 @@ This will transfer the pixels from the color texture of the Framebuffer
 to the screen and while at it, it can do some postprocessing (not doing it right now):
 E.g fxaa anti aliasing, color correction etc.
 """
-function postprocess(color::Texture, color_luma::Texture, framebuffer_size)
+function postprocess(color, color_luma, framebuffer_size)
     shader1 = LazyShader(
         loadshader("fullscreen.vert"),
         loadshader("postprocess.frag")
@@ -91,12 +90,12 @@ function GLFramebuffer(fb_size)
     glGenRenderbuffers(1, depth_stencil_rb)
     glBindRenderbuffer(GL_RENDERBUFFER, depth_stencil_rb[])
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, buffersize...)
+
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depth_stencil_rb[])
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, depth_stencil_rb[])
-
     attach_framebuffer(color_buffer, GL_COLOR_ATTACHMENT0)
     attach_framebuffer(objectid_buffer, GL_COLOR_ATTACHMENT1)
-    #attach_framebuffer(depth_buffer, GL_DEPTH_STENCIL_ATTACHMENT)
+
     status = glCheckFramebufferStatus(GL_FRAMEBUFFER)
     @assert status == GL_FRAMEBUFFER_COMPLETE
 
@@ -104,24 +103,40 @@ function GLFramebuffer(fb_size)
     color_luma_framebuffer = glGenFramebuffers()
     glBindFramebuffer(GL_FRAMEBUFFER, color_luma_framebuffer)
     attach_framebuffer(color_luma, GL_COLOR_ATTACHMENT0)
+    @assert status == GL_FRAMEBUFFER_COMPLETE
 
-    p  = postprocess(color_buffer, color_luma, fb_size)
+    # color_fxaa = Texture(RGBA{UFixed8}, buffersize, minfilter=:nearest, x_repeat=:clamp_to_edge)
+    # color_fxaa_framebuffer = glGenFramebuffers()
+    # glBindFramebuffer(GL_FRAMEBUFFER, color_fxaa_framebuffer)
+    #
+    # glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depth_stencil_rb[])
+    # glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, depth_stencil_rb[])
+    # attach_framebuffer(color_fxaa, GL_COLOR_ATTACHMENT0)
+    # attach_framebuffer(objectid_buffer, GL_COLOR_ATTACHMENT1)
+    #
+    # status = glCheckFramebufferStatus(GL_FRAMEBUFFER)
+
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0)
+
+    p = postprocess(color_buffer, color_luma, fb_size)
+
     fb = GLFramebuffer(
-        render_framebuffer, color_luma_framebuffer,
+        (render_framebuffer, color_luma_framebuffer),
         color_buffer, objectid_buffer, depth_stencil_rb[],
         color_luma,
         p
     )
-    glBindFramebuffer(GL_FRAMEBUFFER, 0)
     fb
 end
 
 function Base.resize!(fb::GLFramebuffer, window_size)
-    ws = tuple(window_size...)
+    ws = window_size[1], window_size[2]
     if ws!=size(fb) && all(x->x>0, window_size)
         buffersize = tuple(window_size...)
         resize_nocopy!(fb.color, buffersize)
         resize_nocopy!(fb.color_luma, buffersize)
+        #resize_nocopy!(fb.color_fxaa, buffersize)
         resize_nocopy!(fb.objectid, buffersize)
         glBindRenderbuffer(GL_RENDERBUFFER, fb.depth)
         glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, buffersize...)
@@ -177,6 +192,7 @@ type Screen
     renderlist     ::Tuple # a tuple of specialized renderlists
 
     hidden      ::Bool
+    clear       ::Bool
     color       ::RGBA{Float32}
     stroke      ::Tuple{Float32, RGBA{Float32}}
 
@@ -193,6 +209,7 @@ type Screen
             inputs      ::Dict{Symbol, Any},
             renderlist  ::Tuple,
             hidden      ::Bool,
+            clear       ::Bool,
             color       ::Colorant,
             stroke      ::Tuple,
             cameras     ::Dict{Symbol, Any},
@@ -209,6 +226,7 @@ type Screen
         screen.renderlist = renderlist
         screen.renderlist_fxaa = ()
         screen.hidden = hidden
+        screen.clear = clear
         screen.color = RGBA{Float32}(color)
         screen.stroke = (Float32(stroke[1]), RGBA{Float32}(stroke[2]))
         screen.cameras = cameras

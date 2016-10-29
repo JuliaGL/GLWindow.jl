@@ -3,10 +3,10 @@ function clear_all!(window)
     wh = widths(window)
     glViewport(0,0, wh...)
     fb = framebuffer(window)
-    glBindFramebuffer(GL_FRAMEBUFFER, fb.id1)
+    glBindFramebuffer(GL_FRAMEBUFFER, fb.id[1])
     glDrawBuffers(2, [GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1])
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-    glBindFramebuffer(GL_FRAMEBUFFER, fb.id2)
+    glBindFramebuffer(GL_FRAMEBUFFER, fb.id[2])
     glClear(GL_COLOR_BUFFER_BIT)
     glBindFramebuffer(GL_FRAMEBUFFER, 0)
     glClear(GL_COLOR_BUFFER_BIT)
@@ -76,19 +76,19 @@ let _shape_cache = Dict{WeakRef, Any}()
         end
     end
 end
-function absolute_pos(w::Screen)
-end
+
 function setup_window(window, pa=value(window.area))
     if isopen(window) && !ishidden(window)
         glStencilFunc(GL_ALWAYS, window.id, 0xff)
         shape = get_shape(window)
         sa = value(window.area)
         sa = SimpleRectangle(pa.x+sa.x, pa.y+sa.y, sa.w, sa.h)
-        #@show sa
+
         glViewport(sa) # children are in relative coordinates
         shape[:color] = window.color
         shape[:stroke_width] = -window.stroke[1] # negate to stroke inside window
         shape[:stroke_color] = window.stroke[2]
+        glColorMask(window.clear, window.clear, window.clear, window.clear)
         render(shape)
         for elem in window.children
             setup_window(elem, sa)
@@ -100,42 +100,41 @@ end
 Renders a single frame of a `window`
 """
 function render_frame(window)
+    !isopen(window) && return
     fb = GLWindow.framebuffer(window)
-
     wh = widths(window)
     resize!(fb, wh)
     w, h = wh
     #prepare for geometry in need of anti aliasing
-    glBindFramebuffer(GL_FRAMEBUFFER, fb.id1)
+    glBindFramebuffer(GL_FRAMEBUFFER, fb.id[1]) # color framebuffer
     glDrawBuffers(2, [GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1])
     # setup stencil and backgrounds
     glEnable(GL_STENCIL_TEST)
     glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE)
     glStencilMask(0xff)
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-    glClear(GL_STENCIL_BUFFER_BIT)
+    glClearColor(0,0,0,0)
+    glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
     glViewport(0, 0, w, h)
     setup_window(window)
-
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE)
     # deactivate stencil write
-    glEnable(GL_STENCIL_TEST)
     glStencilMask(0x00)
     GLAbstraction.render(window, true)
     glDisable(GL_STENCIL_TEST)
 
-    # transfer color to final buffer and to fxaa
-    glBindFramebuffer(GL_FRAMEBUFFER, fb.id2) # luma
+    # transfer color to luma buffer and apply fxaa
+    glBindFramebuffer(GL_FRAMEBUFFER, fb.id[2]) # luma framebuffer
     glDrawBuffer(GL_COLOR_ATTACHMENT0)
     glViewport(0, 0, w, h)
     GLAbstraction.render(fb.postprocess[1]) # add luma and preprocess
 
-    glBindFramebuffer(GL_FRAMEBUFFER, fb.id1) # transfer back to initial color target with fxaa
+    glBindFramebuffer(GL_FRAMEBUFFER, fb.id[1]) # transfer to non fxaa framebuffer
     glDrawBuffer(GL_COLOR_ATTACHMENT0)
-    GLAbstraction.render(fb.postprocess[2])
+    GLAbstraction.render(fb.postprocess[2]) # copy with fxaa postprocess
 
-    #prepare for non anti aliasing pass
-    glBindFramebuffer(GL_FRAMEBUFFER, fb.id1)
+    #prepare for non anti aliased pass
     glDrawBuffers(2, [GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1])
+
     glEnable(GL_STENCIL_TEST)
     glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE)
     glStencilMask(0x00)
@@ -146,7 +145,7 @@ function render_frame(window)
     #Read all the selection queries
     GLWindow.push_selectionqueries!(window)
     glBindFramebuffer(GL_FRAMEBUFFER, 0) # transfer back to window
-    GLAbstraction.render(fb.postprocess[3])
+    GLAbstraction.render(fb.postprocess[3]) # copy postprocess
 end
 
 
@@ -163,7 +162,7 @@ function GLAbstraction.render(x::Screen, fxaa::Bool, parent::Screen=x, context=x
             ) # if it is in the parent area
             glViewport(sa)
             glStencilFunc(GL_EQUAL, x.id, 0xff)
-            if fxaa # only clear in fxaa pass, because it gets called first
+            if fxaa
                 render(x.renderlist_fxaa)
             else
                 render(x.renderlist)

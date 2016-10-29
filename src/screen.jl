@@ -38,16 +38,17 @@ function Screen(
         inputs::Dict{Symbol, Any} = copy(parent.inputs),
         renderlist::Tuple = (),
         hidden::Bool = parent.hidden,
+        clear::Bool = parent.clear,
+        color = RGBA{Float32}(1,1,1,1),
+        stroke = (0f0, color),
         glcontext::GLContext = parent.glcontext,
         cameras = Dict{Symbol, Any}(),
         position = Vec3f0(2),
-        lookat = Vec3f0(0),
-        color = RGBA{Float32}(1,1,1,1),
-        stroke = (0f0, color)
+        lookat = Vec3f0(0)
     )
     screen = Screen(name,
         area, parent, children, inputs,
-        renderlist, hidden, color, stroke,
+        renderlist, hidden, clear, color, stroke,
         cameras, glcontext
     )
     pintersect = const_lift(x->intersect(zeroposition(value(parent.area)), x), area)
@@ -175,7 +176,9 @@ function create_glcontext(
         windowhints = standard_window_hints(),
         contexthints = standard_context_hints(major, minor)
     )
-
+    # we create a new context, so we need to clear the shader cache.
+    # TODO, cache shaders in GLAbstraction per GL context
+    GLAbstraction.empty_shader_cache!()
     for ch in contexthints
         GLFW.WindowHint(ch...)
     end
@@ -218,11 +221,13 @@ function Screen(name = "GLWindow";
         windowhints = standard_window_hints(),
         contexthints = standard_context_hints(major, minor),
         callbacks = standard_callbacks(),
+        clear = true,
         color = RGBA{Float32}(1,1,1,1),
         stroke = (0f0, color),
         hidden = false
     )
     # create glcontext
+
     window = create_glcontext(
         name,
         resolution=resolution, debugging=debugging,
@@ -256,19 +261,11 @@ function Screen(name = "GLWindow";
     )
     signal_dict[:mouse2id] = Signal(SelectionID{Int}(-1, -1))
 
-    # TODO: free when context is freed. We don't have a good abstraction of a gl context yet, though
-    # (It could be shared, so it does not map directly to one screen)
-    preserve(map(signal_dict[:window_open]) do open
-        if !open
-            GLAbstraction.empty_shader_cache!()
-        end
-        nothing
-    end)
     GLFW.SwapInterval(0) # deactivating vsync seems to make everything quite a bit smoother
     screen = Screen(
         Symbol(name), window_area, nothing,
         Screen[], signal_dict,
-        (), hidden, color, stroke,
+        (), hidden, clear, color, stroke,
         Dict{Symbol, Any}(),
         GLContext(window, GLFramebuffer(framebuffer_size))
     )
@@ -358,13 +355,11 @@ end
 """
 Empties the content of the renderlist
 """
-function Base.empty!(s::Screen)
-    # get a copy of the list
-    rlist = renderlist(s)
-    s.renderlist = () # remove references and empty lists
-    s.renderlist_fxaa = () # remove references and empty lists
-    foreach(destroy!, copy(s.children)) # children delete themselves from s.children
-    nothing
+function Base.empty!(screen::Screen)
+    screen.renderlist = () # remove references and empty lists
+    screen.renderlist_fxaa = () # remove references and empty lists
+    foreach(destroy!, copy(screen.children)) # children delete themselves from screen.children
+    return
 end
 
 """
@@ -375,24 +370,21 @@ function GLAbstraction.renderlist(s::Screen)
 end
 function destroy!(screen::Screen)
     empty!(screen) # remove all children and renderobjects
-    # close signals
-    #empty!(screen.cameras)
+    empty!(screen.cameras)
     if isroot(screen) # close gl context (aka ultimate parent)
-        for (k, s) in screen.inputs
-            #close(s, false)
-        end
         nw = nativewindow(screen)
         if nw.handle != C_NULL
             GLFW.DestroyWindow(nw)
             nw.handle = C_NULL
         end
     else # delete from parent
-        for (k, s) in screen.inputs
-            Reactive.unpreserve(s)
-        end
-        #empty!(screen.inputs)
         filter!(s-> !(s===screen), screen.parent.children) # remove from parent
     end
+    # TODO, figure out why bad things happen without this... Theory: Signals
+    # with a reference to old framebuffers are not getting gc'ed and they'll corrupt
+    # something
+    gc()
+    return
 end
 
 get_id(x::Integer) = x
