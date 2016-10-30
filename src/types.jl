@@ -1,16 +1,4 @@
 
-type GLFramebuffer{N, T}
-    id         ::NTuple{N, GLuint}
-    color      ::Texture{RGBA{UFixed8}, 2}
-    objectid   ::Texture{Vec{2, GLushort}, 2}
-    depth      ::GLuint
-    color_luma ::Texture{RGBA{UFixed8}, 2}
-    postprocess::T
-end
-Base.size(fb::GLFramebuffer) = size(fb.color) # it's guaranteed, that they all have the same size
-
-loadshader(name) = load(joinpath(dirname(@__FILE__), name))
-
 function draw_fullscreen(vao_id)
     glBindVertexArray(vao_id)
     glDrawArrays(GL_TRIANGLES, 0, 3)
@@ -25,8 +13,21 @@ end
     glDisable(GL_STENCIL_TEST)
     glStencilMask(0xff)
     glDisable(GL_CULL_FACE)
+    nothing
 end
 
+typealias PostProcessROBJ RenderObject{PostprocessPrerender}
+type GLFramebuffer
+    id         ::NTuple{2, GLuint}
+    color      ::Texture{RGBA{UFixed8}, 2}
+    objectid   ::Texture{Vec{2, GLushort}, 2}
+    depth      ::GLuint
+    color_luma ::Texture{RGBA{UFixed8}, 2}
+    postprocess::NTuple{3, PostProcessROBJ}
+end
+Base.size(fb::GLFramebuffer) = size(fb.color) # it's guaranteed, that they all have the same size
+
+loadshader(name) = load(joinpath(dirname(@__FILE__), name))
 
 
 rcpframe(x) = 1f0./Vec2f0(x[1], x[2])
@@ -177,11 +178,9 @@ end
 
 global new_id
 let counter::Int = 0
-    function new_id()
-        counter += 1
-        counter
-    end
+    new_id() = (counter += 1; counter)
 end
+
 type Screen
     name        ::Symbol
     area        ::Signal{SimpleRectangle{Int}}

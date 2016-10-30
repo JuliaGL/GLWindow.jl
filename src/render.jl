@@ -10,6 +10,7 @@ function clear_all!(window)
     glClear(GL_COLOR_BUFFER_BIT)
     glBindFramebuffer(GL_FRAMEBUFFER, 0)
     glClear(GL_COLOR_BUFFER_BIT)
+    return
 end
 
 
@@ -21,44 +22,19 @@ function renderloop(window::Screen)
         yield()
     end
     destroy!(window)
-    nothing
+    return
 end
-
-immutable BreadthFirstIter
-    x::Any
-end
-children(s::Screen) = s.children
-function Base.start(iter::BreadthFirstIter)
-    (iter.x, 1)
-end
-function Base.next(iter::BreadthFirstIter, state)
-    parent, next_parent, (childs, cstate, _done) = state
-    if !done(childs, cstate)
-        elem, cstate = next(childs, cstate)
-        if isnull(next_parent) && !isempty(children(elem))
-            next_parent = Nullable(elem)
-        end
-        return parent, next_parent, (elem, cstate, false)
-    elseif !isnull(next_parent)
-        np = get(next_parent)
-        childs = children(np)
-        return np, Nullable{typeof(np)}(), (childs, start(childs), false)
-    else
-        np, Nullable{typeof(np)}(), (childs, start(childs), true)
-    end
-end
-
-
 
 function shape_prerender()
     glDisable(GL_DEPTH_TEST)
     glDepthMask(GL_FALSE)
     glDisable(GL_CULL_FACE)
     glDisable(GL_BLEND)
+    return
 end
 
 global get_shape
-let _shape_cache = Dict{WeakRef, Any}()
+let _shape_cache = Dict{WeakRef, RenderObject{typeof(shape_prerender)}}()
     function get_shape(window)
         root = WeakRef(rootscreen(window)) # cache for root only
         get!(_shape_cache, root) do
@@ -94,6 +70,7 @@ function setup_window(window, pa=value(window.area))
             setup_window(elem, sa)
         end
     end
+    return
 end
 
 """
@@ -146,6 +123,7 @@ function render_frame(window)
     GLWindow.push_selectionqueries!(window)
     glBindFramebuffer(GL_FRAMEBUFFER, 0) # transfer back to window
     GLAbstraction.render(fb.postprocess[3]) # copy postprocess
+    return
 end
 
 
@@ -172,4 +150,5 @@ function GLAbstraction.render(x::Screen, fxaa::Bool, parent::Screen=x, context=x
             end
         end
     end
+    return
 end
