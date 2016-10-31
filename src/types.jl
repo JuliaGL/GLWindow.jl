@@ -27,7 +27,7 @@ type GLFramebuffer
 end
 Base.size(fb::GLFramebuffer) = size(fb.color) # it's guaranteed, that they all have the same size
 
-loadshader(name) = load(joinpath(dirname(@__FILE__), name))
+loadshader(name) = joinpath(dirname(@__FILE__), name)
 
 
 rcpframe(x) = 1f0./Vec2f0(x[1], x[2])
