@@ -33,41 +33,35 @@ function shape_prerender()
     return
 end
 
-global get_shape
-let _shape_cache = Dict{WeakRef, RenderObject{typeof(shape_prerender)}}()
-    function get_shape(window)
-        root = WeakRef(rootscreen(window)) # cache for root only
-        get!(_shape_cache, root) do
-            # jeez... But relying on GLVisualize creates a circular dependency -.-
-            robj = Main.GLVisualize.visualize(
-                SimpleRectangle(-1, -1, 2, 2),
-                projection=eye(Mat4f0),
-                view=eye(Mat4f0)
-            ).children[]
-            RenderObject{typeof(shape_prerender)}(
-                robj.main, robj.uniforms, robj.vertexarray,
-                shape_prerender, robj.postrenderfunction,
-                robj.boundingbox
-            )
-        end
-    end
-end
-
-function setup_window(window, pa=value(window.area))
+function setup_window(window, strokepass, pa=value(window.area))
     if isopen(window) && !ishidden(window)
-        glStencilFunc(GL_ALWAYS, window.id, 0xff)
-        shape = get_shape(window)
         sa = value(window.area)
         sa = SimpleRectangle(pa.x+sa.x, pa.y+sa.y, sa.w, sa.h)
-
-        glViewport(sa) # children are in relative coordinates
-        shape[:color] = window.color
-        shape[:stroke_width] = -window.stroke[1] # negate to stroke inside window
-        shape[:stroke_color] = window.stroke[2]
-        glColorMask(window.clear, window.clear, window.clear, window.clear)
-        render(shape)
+        if !strokepass
+            glScissor(sa.x, sa.y, sa.w, sa.h)
+            if window.clear
+                c = window.color
+                glClearColor(red(c), green(c), blue(c), alpha(c))
+            end
+            glClearStencil(window.id)
+            glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)
+        end
+        if window.stroke[1] > 0 && strokepass
+            c = window.stroke[2]
+            s = 2
+            # not the best way to draw stroke, but quite simple and should be fast
+            glClearColor(red(c), green(c), blue(c), alpha(c))
+            glScissor(sa.x, sa.y, s, sa.h)
+            glClear(GL_COLOR_BUFFER_BIT)
+            glScissor(sa.x, sa.y, sa.w, s)
+            glClear(GL_COLOR_BUFFER_BIT)
+            glScissor(sa.x+sa.w-s, sa.y, s, sa.h)
+            glClear(GL_COLOR_BUFFER_BIT)
+            glScissor(sa.x, sa.y+sa.h-s, sa.w, s)
+            glClear(GL_COLOR_BUFFER_BIT)
+        end
         for elem in window.children
-            setup_window(elem, sa)
+            setup_window(elem, strokepass, sa)
         end
     end
     return
@@ -89,12 +83,15 @@ function render_frame(window)
     glEnable(GL_STENCIL_TEST)
     glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE)
     glStencilMask(0xff)
-    glClearColor(0,0,0,0)
-    glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-    glViewport(0, 0, w, h)
-    setup_window(window)
+    glClearStencil(0)
+    glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)
+    glEnable(GL_SCISSOR_TEST)
+    setup_window(window, false)
+    glDisable(GL_SCISSOR_TEST)
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE)
     # deactivate stencil write
+    glEnable(GL_STENCIL_TEST)
+    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE)
     glStencilMask(0x00)
     GLAbstraction.render(window, true)
     glDisable(GL_STENCIL_TEST)
@@ -117,7 +114,10 @@ function render_frame(window)
     glStencilMask(0x00)
     GLAbstraction.render(window, false)
     glDisable(GL_STENCIL_TEST)
-
+    # draw strokes
+    glEnable(GL_SCISSOR_TEST)
+    setup_window(window, true)
+    glDisable(GL_SCISSOR_TEST)
     glViewport(0,0, wh...)
     #Read all the selection queries
     GLWindow.push_selectionqueries!(window)
