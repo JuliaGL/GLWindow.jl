@@ -27,7 +27,7 @@ type GLFramebuffer
 end
 Base.size(fb::GLFramebuffer) = size(fb.color) # it's guaranteed, that they all have the same size
 
-loadshader(name) = load(joinpath(dirname(@__FILE__), name))
+loadshader(name) = joinpath(dirname(@__FILE__), name)
 
 
 rcpframe(x) = 1f0./Vec2f0(x[1], x[2])
@@ -106,18 +106,6 @@ function GLFramebuffer(fb_size)
     attach_framebuffer(color_luma, GL_COLOR_ATTACHMENT0)
     @assert status == GL_FRAMEBUFFER_COMPLETE
 
-    # color_fxaa = Texture(RGBA{UFixed8}, buffersize, minfilter=:nearest, x_repeat=:clamp_to_edge)
-    # color_fxaa_framebuffer = glGenFramebuffers()
-    # glBindFramebuffer(GL_FRAMEBUFFER, color_fxaa_framebuffer)
-    #
-    # glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depth_stencil_rb[])
-    # glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, depth_stencil_rb[])
-    # attach_framebuffer(color_fxaa, GL_COLOR_ATTACHMENT0)
-    # attach_framebuffer(objectid_buffer, GL_COLOR_ATTACHMENT1)
-    #
-    # status = glCheckFramebufferStatus(GL_FRAMEBUFFER)
-
-
     glBindFramebuffer(GL_FRAMEBUFFER, 0)
 
     p = postprocess(color_buffer, color_luma, fb_size)
@@ -137,7 +125,6 @@ function Base.resize!(fb::GLFramebuffer, window_size)
         buffersize = tuple(window_size...)
         resize_nocopy!(fb.color, buffersize)
         resize_nocopy!(fb.color_luma, buffersize)
-        #resize_nocopy!(fb.color_fxaa, buffersize)
         resize_nocopy!(fb.objectid, buffersize)
         glBindRenderbuffer(GL_RENDERBUFFER, fb.depth)
         glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, buffersize...)
@@ -171,10 +158,13 @@ function MonitorProperties(monitor::Monitor)
     MonitorProperties(name, isprimary, position, physicalsize, videomode, videomode_supported, dpi, monitor)
 end
 
-immutable GLContext
+type GLContext
     window::GLFW.Window
     framebuffer::GLFramebuffer
+    visible::Bool
+    cache::Dict
 end
+GLContext(window, framebuffer, visible) = GLContext(window, framebuffer, visible, Dict())
 
 global new_id
 let counter::Int = 0
@@ -189,8 +179,8 @@ type Screen
     inputs      ::Dict{Symbol, Any}
     renderlist_fxaa::Tuple # a tuple of specialized renderlists
     renderlist     ::Tuple # a tuple of specialized renderlists
-
-    hidden      ::Bool
+    visible     ::Bool # if window is visible. Will still render
+    hidden      ::Bool # if window is hidden. Will not render
     clear       ::Bool
     color       ::RGBA{Float32}
     stroke      ::Tuple{Float32, RGBA{Float32}}

@@ -58,9 +58,9 @@ function Screen(
     #checks if mouse is inside screen and not inside any children
     insidescreen = droprepeats(const_lift(isinside, screen, relative_mousepos))
     merge!(screen.inputs, Dict(
-        :mouseinside 	=> insidescreen,
-        :mouseposition 	=> relative_mousepos,
-        :window_area 	=> area
+        :mouseinside => insidescreen,
+        :mouseposition => relative_mousepos,
+        :window_area => area
     ))
     # creates cameras for the sceen with the new inputs
 
@@ -174,16 +174,20 @@ function create_glcontext(
         major = 3,
         minor = 3,# this is what GLVisualize needs to offer all features
         windowhints = standard_window_hints(),
-        contexthints = standard_context_hints(major, minor)
+        contexthints = standard_context_hints(major, minor),
+        visible = true,
+        focus = false
     )
     # we create a new context, so we need to clear the shader cache.
     # TODO, cache shaders in GLAbstraction per GL context
+    GLFW.WindowHint(GLFW.VISIBLE, visible)
+    GLFW.WindowHint(GLFW.FOCUSED, focus)
     GLAbstraction.empty_shader_cache!()
     for ch in contexthints
-        GLFW.WindowHint(ch...)
+        GLFW.WindowHint(ch[1], ch[2])
     end
     for wh in windowhints
-        GLFW.WindowHint(wh...)
+        GLFW.WindowHint(wh[1], wh[2])
     end
 
     @static if is_apple()
@@ -224,22 +228,19 @@ function Screen(name = "GLWindow";
         clear = true,
         color = RGBA{Float32}(1,1,1,1),
         stroke = (0f0, color),
-        hidden = false
+        hidden = false,
+        visible = true,
+        focus = false
     )
     # create glcontext
 
     window = create_glcontext(
         name,
-        resolution=resolution, debugging=debugging,
-        major=major, minor=minor,
-        windowhints=windowhints, contexthints=contexthints
+        resolution = resolution, debugging = debugging,
+        major = major, minor = minor,
+        windowhints = windowhints, contexthints=contexthints,
+        visible = visible, focus = focus
     )
-    if !hidden
-        GLFW.ShowWindow(window)
-    else
-        GLFW.HideWindow(window)
-    end
-
     #create standard signals
     signal_dict = register_callbacks(window, callbacks)
     @materialize window_position, window_size, hasfocus = signal_dict
@@ -267,7 +268,7 @@ function Screen(name = "GLWindow";
         Screen[], signal_dict,
         (), hidden, clear, color, stroke,
         Dict{Symbol, Any}(),
-        GLContext(window, GLFramebuffer(framebuffer_size))
+        GLContext(window, GLFramebuffer(framebuffer_size), visible)
     )
     signal_dict[:mouseinside] = droprepeats(
         const_lift(isinside, screen, signal_dict[:mouseposition])
@@ -300,9 +301,30 @@ function screenbuffer(window, channel=:color)
 end
 
 
+ishidden(s::Screen) = s.hidden
+
+function set_visibility!(screen::Screen, visible::Bool)
+    set_visibility!(screen.glcontext, visible)
+    return
+end
+function set_visibility!(glc::GLContext, visible::Bool)
+    if glc.visible != visible
+        set_visibility!(glc.window, visible)
+        glc.visible = visible
+    end
+    return
+end
+function set_visibility!(screen::GLFW.Window, visible::Bool)
+    if visible
+        GLFW.ShowWindow(screen)
+    else !visible
+        GLFW.HideWindow(screen)
+    end
+    return
+end
+
 
 widths(s::Screen) = widths(value(s.area))
-ishidden(s::Screen) = s.hidden
 framebuffer(s::Screen) = s.glcontext.framebuffer
 nativewindow(s::Screen) = s.glcontext.window
 
@@ -358,7 +380,8 @@ Empties the content of the renderlist
 function Base.empty!(screen::Screen)
     screen.renderlist = () # remove references and empty lists
     screen.renderlist_fxaa = () # remove references and empty lists
-    foreach(destroy!, copy(screen.children)) # children delete themselves from screen.children
+    foreach(empty!, screen.children) # children delete themselves from screen.children
+    empty!(screen.children)
     return
 end
 
