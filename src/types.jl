@@ -177,10 +177,11 @@ type Screen
     parent      ::Screen
     children    ::Vector{Screen}
     inputs      ::Dict{Symbol, Any}
+    isleaf_signal ::Dict{Symbol, Bool}
     renderlist_fxaa::Tuple # a tuple of specialized renderlists
     renderlist     ::Tuple # a tuple of specialized renderlists
     visible     ::Bool # if window is visible. Will still render
-    hidden      ::Bool # if window is hidden. Will not render
+    hidden      ::Signal{Bool} # if window is hidden. Will not render
     clear       ::Bool
     color       ::RGBA{Float32}
     stroke      ::Tuple{Float32, RGBA{Float32}}
@@ -197,7 +198,7 @@ type Screen
             children    ::Vector{Screen},
             inputs      ::Dict{Symbol, Any},
             renderlist  ::Tuple,
-            hidden      ::Bool,
+            hidden,
             clear       ::Bool,
             color       ::Colorant,
             stroke      ::Tuple,
@@ -208,13 +209,18 @@ type Screen
         if parent != nothing
             screen.parent = parent
         end
+        leaves = Dict{Symbol, Bool}()
+        for (k, v) in inputs
+            leaves[k] = isempty(v.actions)
+        end
         screen.name = name
         screen.area = area
         screen.children = children
         screen.inputs = inputs
+        screen.isleaf_signal = leaves
         screen.renderlist = renderlist
         screen.renderlist_fxaa = ()
-        screen.hidden = hidden
+        screen.hidden = isa(hidden, Signal) ? hidden : Signal(hidden)
         screen.clear = clear
         screen.color = RGBA{Float32}(color)
         screen.stroke = (Float32(stroke[1]), RGBA{Float32}(stroke[2]))

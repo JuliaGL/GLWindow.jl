@@ -33,11 +33,11 @@ Screen constructor cnstructing a new screen from a parant screen.
 function Screen(
         parent::Screen;
         name = gensym(parent.name),
-        area = parent.area,
+        area = map(identity, parent.area),
         children::Vector{Screen} = Screen[],
         inputs::Dict{Symbol, Any} = copy(parent.inputs),
         renderlist::Tuple = (),
-        hidden::Bool = parent.hidden,
+        hidden = parent.hidden,
         clear::Bool = parent.clear,
         color = RGBA{Float32}(1,1,1,1),
         stroke = (0f0, color),
@@ -52,7 +52,7 @@ function Screen(
         cameras, glcontext
     )
     pintersect = const_lift(x->intersect(zeroposition(value(parent.area)), x), area)
-    relative_mousepos = const_lift(inputs[:mouseposition]) do mpos
+    relative_mousepos = map(inputs[:mouseposition]) do mpos
         Point{2, Float64}(mpos[1]-value(pintersect).x, mpos[2]-value(pintersect).y)
     end
     #checks if mouse is inside screen and not inside any children
@@ -62,8 +62,6 @@ function Screen(
         :mouseposition => relative_mousepos,
         :window_area => area
     ))
-    # creates cameras for the sceen with the new inputs
-
     push!(parent.children, screen)
     screen
 end
@@ -88,7 +86,7 @@ function corrected_coordinates(
         mouse_position::Vec{2,Float64}
     )
     s = scaling_factor(window_size.value, framebuffer_width.value)
-    Vec(mouse_position[1], window_size.value[2] - mouse_position[2]) .* s
+    Vec{2,Float64}(mouse_position[1], window_size.value[2] - mouse_position[2]) .* s
 end
 
 
@@ -197,7 +195,7 @@ function create_glcontext(
         end
     end
     GLFW.WindowHint(GLFW.OPENGL_DEBUG_CONTEXT, Cint(debugging))
-
+    @show resolution
     window = GLFW.CreateWindow(resolution..., Compat.String(name))
     GLFW.MakeContextCurrent(window)
 
@@ -300,9 +298,35 @@ function screenbuffer(window, channel=:color)
     error("Channel $channel does not exist. Only these channels are available: $channels")
 end
 
+"""
+If hidden, window will stop rendering.
+"""
+ishidden(s::Screen) = value(s.hidden)
 
-ishidden(s::Screen) = s.hidden
+"""
+Hides a window and stops it from being rendered.
+"""
+function hide!(s::Screen)
+    if isroot(s)
+        set_visibility!(s, false)
+    end
+    push!(s.hidden, true)
+end
+"""
+Shows a window and turns rendering back on
+"""
+function show!(s::Screen)
+    if isroot(s)
+        set_visibility!(s, true)
+    end
+    push!(s.hidden, false)
+end
 
+
+"""
+Sets visibility of OpenGL window. Will still render if not visible.
+Only applies to the root screen holding the opengl context.
+"""
 function set_visibility!(screen::Screen, visible::Bool)
     set_visibility!(screen.glcontext, visible)
     return
@@ -380,8 +404,7 @@ Empties the content of the renderlist
 function Base.empty!(screen::Screen)
     screen.renderlist = () # remove references and empty lists
     screen.renderlist_fxaa = () # remove references and empty lists
-    foreach(empty!, screen.children) # children delete themselves from screen.children
-    empty!(screen.children)
+    foreach(destroy!, copy(screen.children)) # children delete themselves from screen.children
     return
 end
 
@@ -393,6 +416,8 @@ function GLAbstraction.renderlist(s::Screen)
 end
 function destroy!(screen::Screen)
     empty!(screen) # remove all children and renderobjects
+    empty!(screen.inputs)
+    close(screen.area, false)
     empty!(screen.cameras)
     if isroot(screen) # close gl context (aka ultimate parent)
         nw = nativewindow(screen)

@@ -39,12 +39,14 @@ function setup_window(window, strokepass, pa=value(window.area))
         sa = SimpleRectangle(pa.x+sa.x, pa.y+sa.y, sa.w, sa.h)
         if !strokepass
             glScissor(sa.x, sa.y, sa.w, sa.h)
+            glClearStencil(window.id)
+            bits = GL_STENCIL_BUFFER_BIT
             if window.clear
                 c = window.color
                 glClearColor(red(c), green(c), blue(c), alpha(c))
+                bits |= GL_COLOR_BUFFER_BIT
             end
-            glClearStencil(window.id)
-            glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)
+            glClear(bits)
         end
         if window.stroke[1] > 0 && strokepass
             c = window.stroke[2]
