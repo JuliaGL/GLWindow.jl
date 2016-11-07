@@ -195,7 +195,6 @@ function create_glcontext(
         end
     end
     GLFW.WindowHint(GLFW.OPENGL_DEBUG_CONTEXT, Cint(debugging))
-    @show resolution
     window = GLFW.CreateWindow(resolution..., Compat.String(name))
     GLFW.MakeContextCurrent(window)
 
@@ -416,11 +415,13 @@ function GLAbstraction.renderlist(s::Screen)
 end
 function destroy!(screen::Screen)
     empty!(screen) # remove all children and renderobjects
-    empty!(screen.inputs)
     close(screen.area, false)
     empty!(screen.cameras)
     if isroot(screen) # close gl context (aka ultimate parent)
         nw = nativewindow(screen)
+        for (k, s) in screen.inputs
+            close(s, false)
+        end
         if nw.handle != C_NULL
             GLFW.DestroyWindow(nw)
             nw.handle = C_NULL
@@ -428,6 +429,8 @@ function destroy!(screen::Screen)
     else # delete from parent
         filter!(s-> !(s===screen), screen.parent.children) # remove from parent
     end
+    empty!(screen.inputs)
+
     # TODO, figure out why bad things happen without this... Theory: Signals
     # with a reference to old framebuffers are not getting gc'ed and they'll corrupt
     # something
