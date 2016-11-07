@@ -168,7 +168,10 @@ GLContext(window, framebuffer, visible) = GLContext(window, framebuffer, visible
 
 global new_id
 let counter::Int = 0
-    new_id() = (counter += 1; counter)
+    # start from new and hope we don't display all displays at once.
+    # TODO make it clearer if we reached max num, or if we just created
+    # a lot of small screens and display them simultanously
+    new_id() = (counter = mod1(counter + 1, 255); counter)
 end
 
 type Screen
