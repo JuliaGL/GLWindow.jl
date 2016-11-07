@@ -197,6 +197,9 @@ function create_glcontext(
     GLFW.WindowHint(GLFW.OPENGL_DEBUG_CONTEXT, Cint(debugging))
     window = GLFW.CreateWindow(resolution..., Compat.String(name))
     GLFW.MakeContextCurrent(window)
+    # tell GLAbstraction that we created a new context.
+    # This is important for resource tracking
+    GLAbstraction.new_context()
 
     debugging && glDebugMessageCallbackARB(_openglerrorcallback, C_NULL)
     window
@@ -430,11 +433,7 @@ function destroy!(screen::Screen)
         filter!(s-> !(s===screen), screen.parent.children) # remove from parent
     end
     empty!(screen.inputs)
-
-    # TODO, figure out why bad things happen without this... Theory: Signals
-    # with a reference to old framebuffers are not getting gc'ed and they'll corrupt
-    # something
-    gc()
+    
     return
 end
 
