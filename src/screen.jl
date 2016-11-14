@@ -389,7 +389,7 @@ end
 """
 Poll events on the screen which will propogate signals through react.
 """
-function pollevents()
+function poll_glfw()
     GLFW.PollEvents()
 end
 
@@ -433,7 +433,7 @@ function destroy!(screen::Screen)
         filter!(s-> !(s===screen), screen.parent.children) # remove from parent
     end
     empty!(screen.inputs)
-    
+
     return
 end
 

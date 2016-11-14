@@ -30,7 +30,7 @@ include("screen.jl")
 
 export createwindow
 export swapbuffers
-export pollevents
+export poll_glfw
 export Screen
 export UnicodeInput
 export KeyPressed

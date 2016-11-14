@@ -15,10 +15,13 @@ vec3 linear_tone_mapping(vec3 color, float gamma)
 
 void main(void)
 {
-    vec3 opaque = texture(color_texture, frag_uv).rgb;
+    vec4 color = texture(color_texture, frag_uv).rgba;
+    if(color.a <= 0){
+        discard;
+    }
     // do tonemapping
-    //opaque = linear_tone_mapping(opaque, 1.8);  // linear color output
-    fragment_color.rgb = opaque;
+    //opaque = linear_tone_mapping(color.rgb, 1.8);  // linear color output
+    fragment_color.rgb = color.rgb;
     // save luma in alpha for FXAA
-    fragment_color.a = dot(opaque.rgb, vec3(0.299, 0.587, 0.114)); // compute luma
+    fragment_color.a = dot(color.rgb, vec3(0.299, 0.587, 0.114)); // compute luma
 }

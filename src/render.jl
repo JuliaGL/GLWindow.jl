@@ -14,15 +14,52 @@ function clear_all!(window)
 end
 
 
+"""
+Sleep is pretty imprecise. E.g. anything under `0.001s` is not guaranteed to wake
+up before `0.001s`. So this timer is pessimistic in the way, that it will never
+sleep more than `time`.
+"""
+@inline function sleep_pessimistic(time)
+    while time >= 0.001
+        tic()
+        sleep(0.001) # sleep for the minimal amount of time
+        time -= toq()
+    end
+end
+function poll_reactive()
+    # run_till_now blocks when message queue is empty!
+    Base.n_avail(Reactive._messages) > 0 && Reactive.run_till_now()
+end
 function renderloop(window::Screen)
     while isopen(window)
+        tic()
         render_frame(window)
         swapbuffers(window)
-        pollevents()
+        poll_glfw()
         yield()
+        sleep_pessimistic((1/60) - toq())
     end
     destroy!(window)
     return
+end
+
+import GLWindow: poll_reactive, sleep_pessimistic
+
+function waiting_renderloop(screen)
+    Reactive.stop()
+    while isopen(screen)
+        tic()
+        poll_glfw() # GLFW poll
+        if Base.n_avail(Reactive._messages) > 0
+            poll_reactive() # reactive poll
+            poll_reactive() # two times for secondary signals
+            render_frame(screen)
+            swapbuffers(screen)
+            yield() # yield in timings? Seems fair
+        end
+        t = toq()
+        sleep_pessimistic((1/60) - t)
+    end
 end
 
 function shape_prerender()
@@ -86,7 +123,8 @@ function render_frame(window)
     glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE)
     glStencilMask(0xff)
     glClearStencil(0)
-    glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)
+    glClearColor(0,0,0,0)
+    glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT | GL_COLOR_BUFFER_BIT)
     glEnable(GL_SCISSOR_TEST)
     setup_window(window, false)
     glDisable(GL_SCISSOR_TEST)
@@ -101,6 +139,8 @@ function render_frame(window)
     # transfer color to luma buffer and apply fxaa
     glBindFramebuffer(GL_FRAMEBUFFER, fb.id[2]) # luma framebuffer
     glDrawBuffer(GL_COLOR_ATTACHMENT0)
+    glClearColor(0,0,0,0)
+    glClear(GL_COLOR_BUFFER_BIT)
     glViewport(0, 0, w, h)
     GLAbstraction.render(fb.postprocess[1]) # add luma and preprocess
 
@@ -124,6 +164,8 @@ function render_frame(window)
     #Read all the selection queries
     GLWindow.push_selectionqueries!(window)
     glBindFramebuffer(GL_FRAMEBUFFER, 0) # transfer back to window
+    glClearColor(0,0,0,0)
+    glClear(GL_COLOR_BUFFER_BIT)
     GLAbstraction.render(fb.postprocess[3]) # copy postprocess
     return
 end
