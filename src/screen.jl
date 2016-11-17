@@ -33,7 +33,7 @@ Screen constructor cnstructing a new screen from a parant screen.
 function Screen(
         parent::Screen;
         name = gensym(parent.name),
-        area = map(identity, parent.area),
+        area = map(zeroposition, parent.area),
         children::Vector{Screen} = Screen[],
         inputs::Dict{Symbol, Any} = copy(parent.inputs),
         renderlist::Tuple = (),
