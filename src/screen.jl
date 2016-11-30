@@ -41,7 +41,7 @@ function Screen(
         clear::Bool = parent.clear,
         color = RGBA{Float32}(1,1,1,1),
         stroke = (0f0, color),
-        glcontext::GLContext = parent.glcontext,
+        glcontext::AbstractContext = parent.glcontext,
         cameras = Dict{Symbol, Any}(),
         position = Vec3f0(2),
         lookat = Vec3f0(0)
@@ -333,7 +333,7 @@ function set_visibility!(screen::Screen, visible::Bool)
     set_visibility!(screen.glcontext, visible)
     return
 end
-function set_visibility!(glc::GLContext, visible::Bool)
+function set_visibility!(glc::AbstractContext, visible::Bool)
     if glc.visible != visible
         set_visibility!(glc.window, visible)
         glc.visible = visible

@@ -158,7 +158,9 @@ function MonitorProperties(monitor::Monitor)
     MonitorProperties(name, isprimary, position, physicalsize, videomode, videomode_supported, dpi, monitor)
 end
 
-type GLContext
+abstract AbstractContext
+
+type GLContext <: AbstractContext
     window::GLFW.Window
     framebuffer::GLFramebuffer
     visible::Bool
@@ -191,7 +193,7 @@ type Screen
 
     cameras     ::Dict{Symbol, Any}
 
-    glcontext   ::GLContext
+    glcontext   ::AbstractContext
     id          ::Int
 
     function Screen(
@@ -206,7 +208,7 @@ type Screen
             color       ::Colorant,
             stroke      ::Tuple,
             cameras     ::Dict{Symbol, Any},
-            context     ::GLContext
+            context     ::AbstractContext
         )
         screen = new()
         if parent != nothing
