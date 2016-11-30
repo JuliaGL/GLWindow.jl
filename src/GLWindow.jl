@@ -6,10 +6,10 @@ using ModernGL
 using GLAbstraction
 using GLFW
 using Reactive
+using StaticArrays
 using GeometryTypes
 using ColorTypes
 using FixedPointNumbers
-using FixedSizeArrays
 using Compat
 using FileIO
 
