@@ -13,10 +13,15 @@ using FixedSizeArrays
 using Compat
 using FileIO
 
-import GLFW.Window
-import GLFW.Monitor
+import GLFW: Window, Monitor
 import GLAbstraction.render
 import GeometryTypes.widths
+
+if isdefined(FixedPointNumbers, :N0f8)
+    import FixedPointNumbers: N0f8
+else
+    const N0f8 = FixedPointNumbers.UFixed8
+end
 
 include("types.jl")
 
