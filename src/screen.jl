@@ -454,6 +454,10 @@ function Base.delete!(screen::Screen, robj::RenderObject)
         deleted, i = delete_robj!(renderlist, robj)
         deleted && return true
     end
+    for renderlist in screen.renderlist_fxaa
+        deleted, i = delete_robj!(renderlist, robj)
+        deleted && return true
+    end
     false
 end
 
