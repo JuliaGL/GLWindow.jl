@@ -295,6 +295,9 @@ function screenbuffer(window, channel=:color)
     channels = fieldnames(fb)[2:end]
     if channel in channels
         img = gpu_data(getfield(fb, channel))[abs_area(window)]
+        if channel == :color
+            img = RGB{N0f8}.(img)
+        end
         return rotl90(img)
     end
     error("Channel $channel does not exist. Only these channels are available: $channels")
