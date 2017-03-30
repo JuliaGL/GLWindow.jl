@@ -41,7 +41,7 @@ function Screen(
         clear::Bool = parent.clear,
         color = RGBA{Float32}(1,1,1,1),
         stroke = (0f0, color),
-        glcontext::GLContext = parent.glcontext,
+        glcontext::AbstractContext = parent.glcontext,
         cameras = Dict{Symbol, Any}(),
         position = Vec3f0(2),
         lookat = Vec3f0(0)
@@ -295,6 +295,9 @@ function screenbuffer(window, channel=:color)
     channels = fieldnames(fb)[2:end]
     if channel in channels
         img = gpu_data(getfield(fb, channel))[abs_area(window)]
+        if channel == :color
+            img = RGB{N0f8}.(img)
+        end
         return rotl90(img)
     end
     error("Channel $channel does not exist. Only these channels are available: $channels")
@@ -333,7 +336,7 @@ function set_visibility!(screen::Screen, visible::Bool)
     set_visibility!(screen.glcontext, visible)
     return
 end
-function set_visibility!(glc::GLContext, visible::Bool)
+function set_visibility!(glc::AbstractContext, visible::Bool)
     if glc.visible != visible
         set_visibility!(glc.window, visible)
         glc.visible = visible
@@ -451,6 +454,10 @@ end
 
 function Base.delete!(screen::Screen, robj::RenderObject)
     for renderlist in screen.renderlist
+        deleted, i = delete_robj!(renderlist, robj)
+        deleted && return true
+    end
+    for renderlist in screen.renderlist_fxaa
         deleted, i = delete_robj!(renderlist, robj)
         deleted && return true
     end

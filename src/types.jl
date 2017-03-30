@@ -19,10 +19,10 @@ end
 typealias PostProcessROBJ RenderObject{PostprocessPrerender}
 type GLFramebuffer
     id         ::NTuple{2, GLuint}
-    color      ::Texture{RGBA{UFixed8}, 2}
+    color      ::Texture{RGBA{N0f8}, 2}
     objectid   ::Texture{Vec{2, GLushort}, 2}
     depth      ::GLuint
-    color_luma ::Texture{RGBA{UFixed8}, 2}
+    color_luma ::Texture{RGBA{N0f8}, 2}
     postprocess::NTuple{3, PostProcessROBJ}
 end
 Base.size(fb::GLFramebuffer) = size(fb.color) # it's guaranteed, that they all have the same size
@@ -85,7 +85,7 @@ function GLFramebuffer(fb_size)
     glBindFramebuffer(GL_FRAMEBUFFER, render_framebuffer)
 
     buffersize      = tuple(value(fb_size)...)
-    color_buffer    = Texture(RGBA{UFixed8},    buffersize, minfilter=:nearest, x_repeat=:clamp_to_edge)
+    color_buffer    = Texture(RGBA{N0f8},    buffersize, minfilter=:nearest, x_repeat=:clamp_to_edge)
     objectid_buffer = Texture(Vec{2, GLushort}, buffersize, minfilter=:nearest, x_repeat=:clamp_to_edge)
     depth_stencil_rb = Ref{GLuint}()
     glGenRenderbuffers(1, depth_stencil_rb)
@@ -100,7 +100,7 @@ function GLFramebuffer(fb_size)
     status = glCheckFramebufferStatus(GL_FRAMEBUFFER)
     @assert status == GL_FRAMEBUFFER_COMPLETE
 
-    color_luma = Texture(RGBA{UFixed8}, buffersize, minfilter=:linear, x_repeat=:clamp_to_edge)
+    color_luma = Texture(RGBA{N0f8}, buffersize, minfilter=:linear, x_repeat=:clamp_to_edge)
     color_luma_framebuffer = glGenFramebuffers()
     glBindFramebuffer(GL_FRAMEBUFFER, color_luma_framebuffer)
     attach_framebuffer(color_luma, GL_COLOR_ATTACHMENT0)
@@ -151,14 +151,16 @@ function MonitorProperties(monitor::Monitor)
     position = Vec{2, Int}(GLFW.GetMonitorPos(monitor)...)
     physicalsize = Vec{2, Int}(GLFW.GetMonitorPhysicalSize(monitor)...)
     videomode = GLFW.GetVideoMode(monitor)
-
-    dpi = Vec(videomode.width * 25.4, videomode.height * 25.4) ./ Vec{2, Float64}(physicalsize)
+    sfactor = is_apple() ? 2.0 : 1.0
+    dpi = Vec(videomode.width * 25.4, videomode.height * 25.4) * sfactor ./ Vec{2, Float64}(physicalsize)
     videomode_supported = GLFW.GetVideoModes(monitor)
 
     MonitorProperties(name, isprimary, position, physicalsize, videomode, videomode_supported, dpi, monitor)
 end
 
-type GLContext
+abstract AbstractContext
+
+type GLContext <: AbstractContext
     window::GLFW.Window
     framebuffer::GLFramebuffer
     visible::Bool
@@ -191,7 +193,7 @@ type Screen
 
     cameras     ::Dict{Symbol, Any}
 
-    glcontext   ::GLContext
+    glcontext   ::AbstractContext
     id          ::Int
 
     function Screen(
@@ -206,7 +208,7 @@ type Screen
             color       ::Colorant,
             stroke      ::Tuple,
             cameras     ::Dict{Symbol, Any},
-            context     ::GLContext
+            context     ::AbstractContext
         )
         screen = new()
         if parent != nothing
