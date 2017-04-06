@@ -106,8 +106,8 @@ end
 begin
 global push_selectionqueries!
 
-const selection_data = Array(SelectionID{UInt16}, 1, 1)
-const old_mouse_position = Array(Vec{2, Float64}, 1)
+const selection_data = Matrix{SelectionID{UInt16}}(1, 1)
+const old_mouse_position = Vector{Vec{2, Float64}}(1)
 
 function push_selectionqueries!(screen)
     mouse_position   = value(mouseposition(screen))
