@@ -294,7 +294,12 @@ function screenbuffer(window, channel=:color)
     fb = framebuffer(window)
     channels = fieldnames(fb)[2:end]
     if channel in channels
-        img = gpu_data(getfield(fb, channel))[abs_area(window)]
+        area = abs_area(window)
+        w = widths(area)
+        buff = gpu_data(getfield(fb, channel))
+        x1, x2 = max(area.x, 1), min(area.x + w[1], size(buff, 1))
+        y1, y2 = max(area.y, 1), min(area.y + w[2], size(buff, 2))
+        img = view(buff, x1:x2, y1:y2)
         if channel == :color
             img = RGB{N0f8}.(img)
         end
@@ -486,7 +491,7 @@ function abs_area(s::Screen)
     while !isroot(s)
         s = s.parent
         pa = value(s.area)
-        area = SimpleRectangle(area.x+pa.x, area.y+pa.y, area.w, area.h)
+        area = SimpleRectangle(area.x + pa.x, area.y + pa.y, area.w, area.h)
     end
     area
 end
