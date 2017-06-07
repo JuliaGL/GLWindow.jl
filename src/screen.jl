@@ -199,7 +199,7 @@ function create_glcontext(
     GLFW.MakeContextCurrent(window)
     # tell GLAbstraction that we created a new context.
     # This is important for resource tracking
-    GLAbstraction.new_context()
+    GLAbstraction.new_context(window)
 
     debugging && glDebugMessageCallbackARB(_openglerrorcallback, C_NULL)
     window
