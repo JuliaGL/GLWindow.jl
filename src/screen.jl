@@ -290,15 +290,23 @@ Returns the contents of the framebuffer of `window` as a Julia Array.
 You can choose the channel of the framebuffer, which is usually:
 `color`, `depth` and `objectid`
 """
-function screenbuffer(window, channel=:color)
+function screenbuffer(window, channel = :color)
     fb = framebuffer(window)
     channels = fieldnames(fb)[2:end]
-    if channel in channels
-        area = abs_area(window)
-        w = widths(area)
+    area = abs_area(window)
+    w = widths(area)
+    x1, x2 = max(area.x, 1), min(area.x + w[1], size(fb.color, 1))
+    y1, y2 = max(area.y, 1), min(area.y + w[2], size(fb.color, 2))
+    if channel == :depth
+        w, h = x2 - x1 + 1, y2 - y1 + 1
+        data = Matrix{Float32}(w, h)
+        glBindFramebuffer(GL_FRAMEBUFFER, fb.id[1])
+        glDisable(GL_SCISSOR_TEST)
+        glDisable(GL_STENCIL_TEST)
+        glReadPixels(x1 - 1, y1 - 1, w, h, GL_DEPTH_COMPONENT, GL_FLOAT, data)
+        return rotl90(data)
+    elseif channel in channels
         buff = gpu_data(getfield(fb, channel))
-        x1, x2 = max(area.x, 1), min(area.x + w[1], size(buff, 1))
-        y1, y2 = max(area.y, 1), min(area.y + w[2], size(buff, 2))
         img = view(buff, x1:x2, y1:y2)
         if channel == :color
             img = RGB{N0f8}.(img)
