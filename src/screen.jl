@@ -41,7 +41,7 @@ function Screen(
         clear::Bool = parent.clear,
         color = RGBA{Float32}(1,1,1,1),
         stroke = (0f0, color),
-        glcontext::GLContext = parent.glcontext,
+        glcontext::AbstractContext = parent.glcontext,
         cameras = Dict{Symbol, Any}(),
         position = Vec3f0(2),
         lookat = Vec3f0(0)
@@ -290,11 +290,27 @@ Returns the contents of the framebuffer of `window` as a Julia Array.
 You can choose the channel of the framebuffer, which is usually:
 `color`, `depth` and `objectid`
 """
-function screenbuffer(window, channel=:color)
+function screenbuffer(window, channel = :color)
     fb = framebuffer(window)
     channels = fieldnames(fb)[2:end]
-    if channel in channels
-        img = gpu_data(getfield(fb, channel))[abs_area(window)]
+    area = abs_area(window)
+    w = widths(area)
+    x1, x2 = max(area.x, 1), min(area.x + w[1], size(fb.color, 1))
+    y1, y2 = max(area.y, 1), min(area.y + w[2], size(fb.color, 2))
+    if channel == :depth
+        w, h = x2 - x1 + 1, y2 - y1 + 1
+        data = Matrix{Float32}(w, h)
+        glBindFramebuffer(GL_FRAMEBUFFER, fb.id[1])
+        glDisable(GL_SCISSOR_TEST)
+        glDisable(GL_STENCIL_TEST)
+        glReadPixels(x1 - 1, y1 - 1, w, h, GL_DEPTH_COMPONENT, GL_FLOAT, data)
+        return rotl90(data)
+    elseif channel in channels
+        buff = gpu_data(getfield(fb, channel))
+        img = view(buff, x1:x2, y1:y2)
+        if channel == :color
+            img = RGB{N0f8}.(img)
+        end
         return rotl90(img)
     end
     error("Channel $channel does not exist. Only these channels are available: $channels")
@@ -333,7 +349,7 @@ function set_visibility!(screen::Screen, visible::Bool)
     set_visibility!(screen.glcontext, visible)
     return
 end
-function set_visibility!(glc::GLContext, visible::Bool)
+function set_visibility!(glc::AbstractContext, visible::Bool)
     if glc.visible != visible
         set_visibility!(glc.window, visible)
         glc.visible = visible
@@ -454,6 +470,10 @@ function Base.delete!(screen::Screen, robj::RenderObject)
         deleted, i = delete_robj!(renderlist, robj)
         deleted && return true
     end
+    for renderlist in screen.renderlist_fxaa
+        deleted, i = delete_robj!(renderlist, robj)
+        deleted && return true
+    end
     false
 end
 
@@ -479,7 +499,7 @@ function abs_area(s::Screen)
     while !isroot(s)
         s = s.parent
         pa = value(s.area)
-        area = SimpleRectangle(area.x+pa.x, area.y+pa.y, area.w, area.h)
+        area = SimpleRectangle(area.x + pa.x, area.y + pa.y, area.w, area.h)
     end
     area
 end

@@ -20,10 +20,10 @@ end
 mouse position is in coorditnates relative to `screen`
 """
 function GeometryTypes.isinside(screen::Screen, mpos)
-    isinside(zeroposition(value(screen.area)), mpos...) || return false
+    isinside(zeroposition(value(screen.area)), mpos[1], mpos[2]) || return false
     for s in screen.children
         # if inside any children, it's not inside screen
-        isinside(value(s.area), mpos...) && return false
+        isinside(value(s.area), mpos[1], mpos[2]) && return false
     end
     true
 end

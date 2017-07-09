@@ -73,7 +73,7 @@ function shape_prerender()
     return
 end
 
-function setup_window(window, strokepass, pa=value(window.area))
+function setup_window(window, strokepass, pa = value(window.area))
     if isopen(window) && !ishidden(window)
         sa = value(window.area)
         sa = SimpleRectangle(pa.x+sa.x, pa.y+sa.y, sa.w, sa.h)

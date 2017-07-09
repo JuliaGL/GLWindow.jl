@@ -13,10 +13,10 @@ using FixedPointNumbers
 using Compat
 using FileIO
 
-import GLFW.Window
-import GLFW.Monitor
-import GLAbstraction.render
-import GeometryTypes.widths
+import GLFW: Window, Monitor
+import GLAbstraction: render, N0f8
+import GeometryTypes: widths
+
 
 include("types.jl")
 
@@ -53,5 +53,6 @@ export create_glcontext
 export renderlist
 export destroy!
 export robj_from_camera
+export AbstractContext
 
 end

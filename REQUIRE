@@ -1,10 +1,12 @@
-julia 0.4
+julia 0.5
 
-ModernGL
-GLAbstraction
+Reactive 0.5
+GLAbstraction 0.3.1 0.5
+GeometryTypes 0.2 0.4
+
 GLFW
-Reactive
-GeometryTypes
+ModernGL
+
 Compat 0.7.15
 ColorTypes
 FixedPointNumbers
