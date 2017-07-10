@@ -4,7 +4,7 @@ function draw_fullscreen(vao_id)
     glDrawArrays(GL_TRIANGLES, 0, 3)
     glBindVertexArray(0)
 end
-immutable PostprocessPrerender
+struct PostprocessPrerender
 end
 function (sp::PostprocessPrerender)()
     glDepthMask(GL_TRUE)
@@ -17,7 +17,7 @@ function (sp::PostprocessPrerender)()
 end
 
 const PostProcessROBJ = RenderObject{PostprocessPrerender}
-type GLFramebuffer
+mutable struct GLFramebuffer
     id         ::NTuple{2, GLuint}
     color      ::Texture{RGBA{N0f8}, 2}
     objectid   ::Texture{Vec{2, GLushort}, 2}
@@ -25,6 +25,7 @@ type GLFramebuffer
     color_luma ::Texture{RGBA{N0f8}, 2}
     postprocess::NTuple{3, PostProcessROBJ}
 end
+
 Base.size(fb::GLFramebuffer) = size(fb.color) # it's guaranteed, that they all have the same size
 
 loadshader(name) = joinpath(dirname(@__FILE__), name)
@@ -134,7 +135,7 @@ function Base.resize!(fb::GLFramebuffer, window_size)
 end
 
 
-immutable MonitorProperties
+struct MonitorProperties
     name::Compat.UTF8String
     isprimary::Bool
     position::Vec{2, Int}
@@ -158,9 +159,9 @@ function MonitorProperties(monitor::Monitor)
     MonitorProperties(name, isprimary, position, physicalsize, videomode, videomode_supported, dpi, monitor)
 end
 
-abstract AbstractContext
+abstract type AbstractContext end
 
-type GLContext <: AbstractContext
+mutable struct GLContext <: AbstractContext
     window::GLFW.Window
     framebuffer::GLFramebuffer
     visible::Bool
@@ -176,7 +177,7 @@ let counter::Int = 0
     new_id() = (counter = mod1(counter + 1, 255); counter)
 end
 
-type Screen
+mutable struct Screen
     name        ::Symbol
     area        ::Signal{SimpleRectangle{Int}}
     parent      ::Screen
