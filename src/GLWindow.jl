@@ -10,7 +10,6 @@ using StaticArrays
 using GeometryTypes
 using ColorTypes
 using FixedPointNumbers
-using Compat
 using FileIO
 
 import GLFW: Window, Monitor

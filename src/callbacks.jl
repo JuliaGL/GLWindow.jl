@@ -69,12 +69,12 @@ function mouse_buttons(window, s::Signal{NTuple{3, Int}}=Signal((0,0,0)))
 end
 """
 Registers a callback for drag and drop of files.
-returns `Signal{Vector{Compat.UTF8String}}`, which are absolute file paths
+returns `Signal{Vector{String}}`, which are absolute file paths
 [GLFW Docs](http://www.glfw.org/docs/latest/group__input.html#gacc95e259ad21d4f666faa6280d4018fd)
 """
-function dropped_files(window, s::Signal{Vector{Compat.UTF8String}}=Signal(Compat.UTF8String[]))
+function dropped_files(window, s::Signal{Vector{String}}=Signal(String[]))
     GLFW.SetDropCallback(window, (window, files) -> begin
-        push!(s, map(Compat.String, files))
+        push!(s, map(String, files))
     end)
     s
 end
