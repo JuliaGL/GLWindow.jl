@@ -1,5 +1,4 @@
-VERSION >= v"0.4.0-dev+6521" && __precompile__(true)
-
+__precompile__(true)
 module GLWindow
 
 using ModernGL
@@ -10,7 +9,6 @@ using StaticArrays
 using GeometryTypes
 using ColorTypes
 using FixedPointNumbers
-using Compat
 using FileIO
 
 import GLFW: Window, Monitor

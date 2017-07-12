@@ -13,7 +13,7 @@ function openglerrorcallback(
         |
         | OpenGL Error!
         | source: $(GLENUM(source).name) :: type: $(GLENUM(typ).name)
-        |  $(Compat.String(message, length))
+        |  $(String(message, length))
         |________________________________________________________________
     """
     output = typ == GL_DEBUG_TYPE_ERROR ? error : info
@@ -195,7 +195,7 @@ function create_glcontext(
         end
     end
     GLFW.WindowHint(GLFW.OPENGL_DEBUG_CONTEXT, Cint(debugging))
-    window = GLFW.CreateWindow(resolution..., Compat.String(name))
+    window = GLFW.CreateWindow(resolution..., String(name))
     GLFW.MakeContextCurrent(window)
     # tell GLAbstraction that we created a new context.
     # This is important for resource tracking

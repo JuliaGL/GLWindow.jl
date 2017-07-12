@@ -136,7 +136,7 @@ end
 
 
 struct MonitorProperties
-    name::Compat.UTF8String
+    name::String
     isprimary::Bool
     position::Vec{2, Int}
     physicalsize::Vec{2, Int}
