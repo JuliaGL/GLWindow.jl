@@ -162,6 +162,15 @@ function standard_window_hints()
         (GLFW.AUX_BUFFERS,  0)
     ]
 end
+
+
+full_screen_usage_message() = """
+Keyword arg fullscreen accepts:
+    Integer: The number of the Monitor to Select
+    Bool: if true, primary monitor gets fullscreen, false no fullscren (default)
+    GLFW.Monitor: Fullscreens on the passed monitor
+"""
+
 """
 Function to create a pure GLFW OpenGL window
 """
@@ -174,7 +183,8 @@ function create_glcontext(
         windowhints = standard_window_hints(),
         contexthints = standard_context_hints(major, minor),
         visible = true,
-        focus = false
+        focus = false,
+        fullscreen = false
     )
     # we create a new context, so we need to clear the shader cache.
     # TODO, cache shaders in GLAbstraction per GL context
@@ -195,7 +205,30 @@ function create_glcontext(
         end
     end
     GLFW.WindowHint(GLFW.OPENGL_DEBUG_CONTEXT, Cint(debugging))
+    monitor = if fullscreen != nothing
+        if isa(fullscreen, GLFW.Monitor)
+            monitor
+        elseif isa(fullscreen, Bool)
+            fullscreen ? GLFW.GetPrimaryMonitor() : GLFW.Monitor(C_NULL)
+        elseif isa(fullscreen, Integer)
+            GLFW.GetMonitors()[fullscreen]
+
+        else
+            error(string(
+                "Usage Error. Keyword argument fullscreen has value: $fullscreen.\n",
+                full_screen_usage_message()
+            ))
+        end
+    else
+        GLFW.Monitor(C_NULL)
+    end
     window = GLFW.CreateWindow(resolution..., String(name))
+    if monitor != GLFW.Monitor(C_NULL)
+        GLFW.SetKeyCallback(window, (_1, button, _2, _3, _4) -> begin
+            button == GLFW.KEY_ESCAPE && GLWindow.make_windowed!(window)
+        end)
+        GLWindow.make_fullscreen!(window)
+    end
     GLFW.MakeContextCurrent(window)
     # tell GLAbstraction that we created a new context.
     # This is important for resource tracking
@@ -205,6 +238,19 @@ function create_glcontext(
     window
 end
 
+make_fullscreen!(screen::Screen, monitor::GLFW.Monitor = GLFW.GetPrimaryMonitor()) = make_fullscreen!(nativewindow(screen), monitor)
+function make_fullscreen!(window::GLFW.Window, monitor::GLFW.Monitor = GLFW.GetPrimaryMonitor())
+    vidmodes = GLFW.GetVideoModes(monitor)[end]
+    GLFW.SetWindowMonitor(window, monitor, 0, 0, vidmodes.width, vidmodes.height, GLFW.DONT_CARE)
+    return
+end
+
+make_windowed!(screen::Screen) = make_windowed!(nativewindow(screen))
+function make_windowed!(window::GLFW.Window)
+    width, height = standard_screen_resolution()
+    GLFW.SetWindowMonitor(window, GLFW.Monitor(C_NULL), 0, 0, width, height, GLFW.DONT_CARE)
+    return
+end
 
 """
 Most basic Screen constructor, which is usually used to create a parent screen.
@@ -230,7 +276,8 @@ function Screen(name = "GLWindow";
         stroke = (0f0, color),
         hidden = false,
         visible = true,
-        focus = false
+        focus = false,
+        fullscreen = false
     )
     # create glcontext
 
@@ -239,7 +286,8 @@ function Screen(name = "GLWindow";
         resolution = resolution, debugging = debugging,
         major = major, minor = minor,
         windowhints = windowhints, contexthints=contexthints,
-        visible = visible, focus = focus
+        visible = visible, focus = focus,
+        fullscreen = fullscreen
     )
     #create standard signals
     signal_dict = register_callbacks(window, callbacks)

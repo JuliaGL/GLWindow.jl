@@ -8,5 +8,5 @@ FixedPointNumbers 0.3.0
 ColorTypes 0.3.1
 StaticArrays # FieldVector
 
-GLFW
+GLFW 1.4.0 # version with fullscreen support
 FileIO
