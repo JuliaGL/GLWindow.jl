@@ -95,7 +95,7 @@ Selection of random objects on the screen is realized by rendering an
 object id + plus an arbitrary index into the framebuffer.
 The index can be used for e.g. instanced geometries.
 """
-immutable SelectionID{T <: Integer} <: FieldVector{2, T}
+struct SelectionID{T <: Integer} <: FieldVector{2, T}
     id::T
     index::T
     # function SelectionID(args::NTuple{2, T})

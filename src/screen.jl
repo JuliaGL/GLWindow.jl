@@ -552,7 +552,7 @@ function abs_area(s::Screen)
     area
 end
 
-function Base.push!{Pre}(screen::Screen, robj::RenderObject{Pre})
+function Base.push!(screen::Screen, robj::RenderObject{Pre}) where Pre
     # since fxaa is the default, if :fxaa not in uniforms --> needs fxaa
     sym = Bool(get(robj.uniforms, :fxaa, true)) ? :renderlist_fxaa : :renderlist
     # find renderlist specialized to current prerender function

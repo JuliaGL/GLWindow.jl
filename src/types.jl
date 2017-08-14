@@ -75,7 +75,7 @@ function postprocess(color, color_luma, framebuffer_size)
     (pass1, pass2, pass3)
 end
 
-function attach_framebuffer{T}(t::Texture{T, 2}, attachment)
+function attach_framebuffer(t::Texture{T, 2}, attachment) where T
     glFramebufferTexture2D(GL_FRAMEBUFFER, attachment, GL_TEXTURE_2D, t.id, 0)
 end
 
