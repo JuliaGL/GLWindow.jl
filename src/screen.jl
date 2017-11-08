@@ -184,13 +184,14 @@ function create_glcontext(
         contexthints = standard_context_hints(major, minor),
         visible = true,
         focus = false,
-        fullscreen = false
+        fullscreen = false,
+        monitor = nothing
     )
     # we create a new context, so we need to clear the shader cache.
     # TODO, cache shaders in GLAbstraction per GL context
     GLFW.WindowHint(GLFW.VISIBLE, visible)
     GLFW.WindowHint(GLFW.FOCUSED, focus)
-    GLAbstraction.empty_shader_cache!()
+    # GLAbstraction.empty_shader_cache!()
     for ch in contexthints
         GLFW.WindowHint(ch[1], ch[2])
     end
@@ -204,31 +205,28 @@ function create_glcontext(
             debugging = false
         end
     end
-    GLFW.WindowHint(GLFW.OPENGL_DEBUG_CONTEXT, Cint(debugging))
-    monitor = if fullscreen != nothing
-        if isa(fullscreen, GLFW.Monitor)
-            monitor
-        elseif isa(fullscreen, Bool)
-            fullscreen ? GLFW.GetPrimaryMonitor() : GLFW.Monitor(C_NULL)
-        elseif isa(fullscreen, Integer)
-            GLFW.GetMonitors()[fullscreen]
 
-        else
-            error(string(
-                "Usage Error. Keyword argument fullscreen has value: $fullscreen.\n",
-                full_screen_usage_message()
-            ))
-        end
+    GLFW.WindowHint(GLFW.OPENGL_DEBUG_CONTEXT, Cint(debugging))
+
+    monitor = if monitor == nothing
+        GLFW.GetPrimaryMonitor()
+    elseif isa(monitor, Integer)
+        GLFW.GetMonitors()[monitor]
+    elseif isa(monitor, GLFW.Monitor)
+        monitor
     else
-        GLFW.Monitor(C_NULL)
+        error("Monitor needs to be nothing, int, or GLFW.Monitor. Found: $monitor")
     end
+
     window = GLFW.CreateWindow(resolution..., String(name))
-    if monitor != GLFW.Monitor(C_NULL)
+
+    if fullscreen
         GLFW.SetKeyCallback(window, (_1, button, _2, _3, _4) -> begin
             button == GLFW.KEY_ESCAPE && GLWindow.make_windowed!(window)
         end)
-        GLWindow.make_fullscreen!(window)
+        GLWindow.make_fullscreen!(window, monitor)
     end
+
     GLFW.MakeContextCurrent(window)
     # tell GLAbstraction that we created a new context.
     # This is important for resource tracking
@@ -277,7 +275,9 @@ function Screen(name = "GLWindow";
         hidden = false,
         visible = true,
         focus = false,
-        fullscreen = false
+        fullscreen = false,
+        monitor = nothing
+
     )
     # create glcontext
 
@@ -287,7 +287,8 @@ function Screen(name = "GLWindow";
         major = major, minor = minor,
         windowhints = windowhints, contexthints=contexthints,
         visible = visible, focus = focus,
-        fullscreen = fullscreen
+        fullscreen = fullscreen,
+        monitor = monitor
     )
     #create standard signals
     signal_dict = register_callbacks(window, callbacks)
@@ -439,14 +440,14 @@ function swapbuffers(window::GLFW.Window)
     GLFW.SwapBuffers(window)
     return
 end
-function Base.resize!(x::Screen, w::Int, h::Int)
+function Base.resize!(x::Screen, w::Integer, h::Integer)
     if isroot(x)
         resize!(GLWindow.nativewindow(x), w, h)
     end
     area = value(x.area)
     push!(x.area, SimpleRectangle(area.x, area.y, w, h))
 end
-function Base.resize!(x::GLFW.Window, w::Int, h::Int)
+function Base.resize!(x::GLFW.Window, w::Integer, h::Integer)
     GLFW.SetWindowSize(x, w, h)
 end
 
@@ -512,7 +513,13 @@ function delete_robj!(list, robj)
     end
     false, 0
 end
-
+function Base.delete!(screen::Screen, c::Composable)
+    deleted = false
+    for elem in GLAbstraction.extract_renderable(c)
+        deleted &= delete!(screen, elem)
+    end
+    deleted # TODO This is not really correct...
+end
 function Base.delete!(screen::Screen, robj::RenderObject)
     for renderlist in screen.renderlist
         deleted, i = delete_robj!(renderlist, robj)
