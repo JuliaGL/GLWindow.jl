@@ -191,7 +191,7 @@ function create_glcontext(
     # TODO, cache shaders in GLAbstraction per GL context
     GLFW.WindowHint(GLFW.VISIBLE, visible)
     GLFW.WindowHint(GLFW.FOCUSED, focus)
-    # GLAbstraction.empty_shader_cache!()
+    GLAbstraction.empty_shader_cache!()
     for ch in contexthints
         GLFW.WindowHint(ch[1], ch[2])
     end
