@@ -94,8 +94,7 @@ function setup_window(window, strokepass, pa = value(window.area))
             glClear(bits)
         end
         if window.stroke[1] > 0 && strokepass
-            c = window.stroke[2]
-            s = 2
+            s, c = window.stroke
             # not the best way to draw stroke, but quite simple and should be fast
             glClearColor(red(c), green(c), blue(c), alpha(c))
             glScissor(sa.x, sa.y, s, sa.h)
@@ -177,8 +176,6 @@ function render_frame(window)
     GLAbstraction.render(fb.postprocess[3]) # copy postprocess
     return
 end
-
-
 
 function GLAbstraction.render(x::Screen, fxaa::Bool, parent::Screen=x, context=x.area.value)
     if isopen(x) && !ishidden(x)
