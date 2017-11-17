@@ -1,3 +1,5 @@
+using Base: RefValue
+
 
 function draw_fullscreen(vao_id)
     glBindVertexArray(vao_id)
@@ -49,7 +51,6 @@ function postprocess(color, color_luma, framebuffer_size)
     )
     pass1 = RenderObject(data1, shader1, PostprocessPrerender(), nothing)
     pass1.postrenderfunction = () -> draw_fullscreen(pass1.vertexarray.id)
-
     shader2 = LazyShader(
         loadshader("fullscreen.vert"),
         loadshader("fxaa.frag")
@@ -59,16 +60,20 @@ function postprocess(color, color_luma, framebuffer_size)
         :RCPFrame => map(rcpframe, framebuffer_size)
     )
     pass2 = RenderObject(data2, shader2, PostprocessPrerender(), nothing)
+
     pass2.postrenderfunction = () -> draw_fullscreen(pass2.vertexarray.id)
 
     shader3 = LazyShader(
         GLWindow.loadshader("fullscreen.vert"),
         GLWindow.loadshader("copy.frag")
     )
+
     data3 = Dict{Symbol, Any}(
         :color_texture => color
     )
+
     pass3 = RenderObject(data3, shader3, GLWindow.PostprocessPrerender(), nothing)
+
     pass3.postrenderfunction = () -> GLWindow.draw_fullscreen(pass3.vertexarray.id)
 
 
@@ -83,11 +88,15 @@ end
 
 function GLFramebuffer(fb_size)
     render_framebuffer = glGenFramebuffers()
+
     glBindFramebuffer(GL_FRAMEBUFFER, render_framebuffer)
 
-    buffersize      = tuple(value(fb_size)...)
-    color_buffer    = Texture(RGBA{N0f8},    buffersize, minfilter=:nearest, x_repeat=:clamp_to_edge)
+    buffersize = tuple(value(fb_size)...)
+
+    color_buffer = Texture(RGBA{N0f8}, buffersize, minfilter=:nearest, x_repeat=:clamp_to_edge)
+
     objectid_buffer = Texture(Vec{2, GLushort}, buffersize, minfilter=:nearest, x_repeat=:clamp_to_edge)
+
     depth_stencil_rb = Ref{GLuint}()
     glGenRenderbuffers(1, depth_stencil_rb)
     glBindRenderbuffer(GL_RENDERBUFFER, depth_stencil_rb[])
@@ -95,7 +104,9 @@ function GLFramebuffer(fb_size)
 
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depth_stencil_rb[])
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, depth_stencil_rb[])
+
     attach_framebuffer(color_buffer, GL_COLOR_ATTACHMENT0)
+
     attach_framebuffer(objectid_buffer, GL_COLOR_ATTACHMENT1)
 
     status = glCheckFramebufferStatus(GL_FRAMEBUFFER)
@@ -169,13 +180,12 @@ mutable struct GLContext <: AbstractContext
 end
 GLContext(window, framebuffer, visible) = GLContext(window, framebuffer, visible, Dict())
 
-global new_id
-let counter::Int = 0
-    # start from new and hope we don't display all displays at once.
-    # TODO make it clearer if we reached max num, or if we just created
-    # a lot of small screens and display them simultanously
-    new_id() = (counter = mod1(counter + 1, 255); counter)
-end
+const screen_id_counter = RefValue(0)
+# start from new and hope we don't display all displays at once.
+# TODO make it clearer if we reached max num, or if we just created
+# a lot of small screens and display them simultanously
+new_id() = (screen_id_counter[] = mod1(screen_id_counter[] + 1, 255); screen_id_counter[])[]
+
 
 mutable struct Screen
     name        ::Symbol
