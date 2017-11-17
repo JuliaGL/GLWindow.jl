@@ -294,10 +294,15 @@ function Screen(name = "GLWindow";
     signal_dict = register_callbacks(window, callbacks)
     @materialize window_position, window_size, hasfocus = signal_dict
     @materialize framebuffer_size, cursor_position = signal_dict
+
+    # make sure we get newest updates from glfw and reactive!
+    push!(framebuffer_size, Vec(GLFW.GetFramebufferSize(window)))
+
     window_area = map(SimpleRectangle,
         Signal(Vec(0,0)),
         framebuffer_size
     )
+
     signal_dict[:window_area] = window_area
     # seems to be necessary to set this as early as possible
     fb_size = value(framebuffer_size)

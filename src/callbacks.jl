@@ -15,7 +15,7 @@ This is why there is also framebuffer_size.
 returns `Signal{Vec{2,Int}}`
 [GLFW Docs](http://www.glfw.org/docs/latest/group__window.html#gaaca1c2715759d03da9834eac19323d4a)
 """
-function window_size(window, s::Signal{Vec{2,Int}}=Signal(Vec{2,Int}( GLFW.GetWindowSize(window))))
+function window_size(window, s::Signal{Vec{2,Int}}=Signal(Vec{2,Int}(GLFW.GetWindowSize(window))))
     GLFW.SetWindowSizeCallback(window, (window, w::Cint, h::Cint,) -> begin
         push!(s, Vec{2,Int}(w, h))
     end)
@@ -37,7 +37,7 @@ Position of the window in screen coordinates.
 returns `Signal{Vec{2,Int}}`
 [GLFW Docs](http://www.glfw.org/docs/latest/group__window.html#ga1c36e52549efd47790eb3f324da71924)
 """
-function window_position(window, s::Signal{Vec{2,Int}}=Signal(Vec(0,0)))
+function window_position(window, s::Signal{Vec{2,Int}} = Signal(Vec(0,0)))
     GLFW.SetWindowPosCallback(window, (window, x::Cint, y::Cint,) -> begin
         push!(s, Vec(Int(x), Int(y)))
     end)
@@ -85,10 +85,13 @@ returns an `Signal{Vector{Char}}`,
 containing the pressed char. Is empty, if no key is pressed.
 [GLFW Docs](http://www.glfw.org/docs/latest/group__input.html#ga1e008c7a8751cea648c8f42cc91104cf)
 """
-function unicode_input(window, s::Signal{Vector{Char}}=Signal(Char[]))
+function unicode_input(window, s::Signal{Vector{Char}} = Signal(Char[]))
     GLFW.SetCharCallback(window, (window, c::Char) -> begin
-        push!(s, Char[c])
-        push!(s, Char[])
+        vals = value(s)
+        push!(vals, c)
+        push!(s, vals)
+        empty!(vals)
+        push!(s, vals)
     end)
     s
 end
