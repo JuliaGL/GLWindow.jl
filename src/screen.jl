@@ -76,6 +76,10 @@ function scaling_factor(window::Vec{2, Int}, fb::Vec{2, Int})
     (window[1] == 0 || window[2] == 0) && return Vec{2, Float64}(1.0)
     Vec{2, Float64}(fb) ./ Vec{2, Float64}(window)
 end
+function scaling_factor(nw)
+    w, fb = GLFW.GetWindowSize(nw), GLFW.GetFramebufferSize(nw)
+    scaling_factor(Vec{2, Int}(w), Vec{2, Int}(fb))
+end
 
 """
 Correct OSX scaling issue and move the 0,0 coordinate to left bottom.
@@ -446,11 +450,15 @@ function swapbuffers(window::GLFW.Window)
     return
 end
 function Base.resize!(x::Screen, w::Integer, h::Integer)
+    nw = GLWindow.nativewindow(x)
     if isroot(x)
-        resize!(GLWindow.nativewindow(x), w, h)
+        resize!(nw, w, h)
     end
     area = value(x.area)
-    push!(x.area, SimpleRectangle(area.x, area.y, w, h))
+    f = scaling_factor(nw)
+    # There was some performance issue with round.(Int, SVector) - not sure if resolved.
+    wf, hf = round.(f .* Vec(w, h))
+    push!(x.area, SimpleRectangle(area.x, area.y, Int(w), Int(h)))
 end
 function Base.resize!(x::GLFW.Window, w::Integer, h::Integer)
     GLFW.SetWindowSize(x, w, h)
