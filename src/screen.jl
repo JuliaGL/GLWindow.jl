@@ -458,7 +458,7 @@ function Base.resize!(x::Screen, w::Integer, h::Integer)
     f = scaling_factor(nw)
     # There was some performance issue with round.(Int, SVector) - not sure if resolved.
     wf, hf = round.(f .* Vec(w, h))
-    push!(x.area, SimpleRectangle(area.x, area.y, Int(w), Int(h)))
+    push!(x.area, SimpleRectangle(area.x, area.y, Int(wf), Int(hf)))
 end
 function Base.resize!(x::GLFW.Window, w::Integer, h::Integer)
     GLFW.SetWindowSize(x, w, h)
