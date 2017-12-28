@@ -145,33 +145,8 @@ function Base.resize!(fb::GLFramebuffer, window_size)
     nothing
 end
 
-
-struct MonitorProperties
-    name::String
-    isprimary::Bool
-    position::Vec{2, Int}
-    physicalsize::Vec{2, Int}
-    videomode::GLFW.VidMode
-    videomode_supported::Vector{GLFW.VidMode}
-    dpi::Vec{2, Float64}
-    monitor::Monitor
-end
-
-function MonitorProperties(monitor::Monitor)
-    name = GLFW.GetMonitorName(monitor)
-    isprimary = GLFW.GetPrimaryMonitor() == monitor
-    position = Vec{2, Int}(GLFW.GetMonitorPos(monitor)...)
-    physicalsize = Vec{2, Int}(GLFW.GetMonitorPhysicalSize(monitor)...)
-    videomode = GLFW.GetVideoMode(monitor)
-    sfactor = is_apple() ? 2.0 : 1.0
-    dpi = Vec(videomode.width * 25.4, videomode.height * 25.4) * sfactor ./ Vec{2, Float64}(physicalsize)
-    videomode_supported = GLFW.GetVideoModes(monitor)
-
-    MonitorProperties(name, isprimary, position, physicalsize, videomode, videomode_supported, dpi, monitor)
-end
-
 abstract type AbstractContext end
-
+#this should remain here, maybe, it uses a glframebuffer
 mutable struct GLContext <: AbstractContext
     window::GLFW.Window
     framebuffer::GLFramebuffer

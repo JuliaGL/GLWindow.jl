@@ -1,12 +1,7 @@
 #=
 Functions that are derived from Base or other packages
 =#
-function Base.show(io::IO, m::MonitorProperties)
-    println(io, "name: ", m.name)
-    println(io, "physicalsize: ",  m.physicalsize[1], "x", m.physicalsize[2])
-    println(io, "resolution: ", m.videomode.width, "x", m.videomode.height)
-    println(io, "dpi: ", m.dpi[1], "x", m.dpi[2])
-end
+
 function Base.show(io::IO, m::Screen)
     println(io, "name: ", m.name)
     println(io, "children: ", length(m.children))
@@ -37,15 +32,6 @@ function isoutside(screens_mouseposition)
         isinside(screen, mpos) && return false
     end
     true
-end
-
-"""
-Returns the monitor resolution of the primary monitor.
-"""
-function primarymonitorresolution()
-    props = MonitorProperties(GLFW.GetPrimaryMonitor())
-    w,h = props.videomode.width, props.videomode.height
-    Vec(Int(w),Int(h))
 end
 
 """

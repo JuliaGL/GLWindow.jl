@@ -15,7 +15,15 @@ import GLFW: Window, Monitor
 import GLAbstraction: render, N0f8
 import GeometryTypes: widths
 
-
+#compatibility with the GLFW revamp
+#things that might be used somewhere in GLWindow, all from GLFW/types.jl
+import GLFW: Window, MonitorProperties
+const create_glcontext = Window
+import GLFW: swapbuffers, make_windowed!, make_fullscreen!, set_visibility!
+#things that might be used somewhere in GLWindow, all from GLFW/extensions.jl
+import GLFW: register_callbacks,
+             standard_screen_resolution, standard_context_hints, standard_window_hints,
+             full_screen_usage_message, poll_glfw, to_arrow_symbol, primarymonitorresolution
 include("types.jl")
 
 include("core.jl")

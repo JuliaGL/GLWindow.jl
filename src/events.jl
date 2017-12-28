@@ -1,13 +1,4 @@
 
-function to_arrow_symbol(button_set)
-    for b in button_set
-        GLFW.KEY_RIGHT == b && return :right
-        GLFW.KEY_LEFT  == b && return :left
-        GLFW.KEY_DOWN  == b && return :down
-        GLFW.KEY_UP    == b && return :up
-    end
-    return :nothing
-end
 
 function mousedragg_objectid(mouse_dragg, mouse_hover)
     map(mouse_dragg) do dragg

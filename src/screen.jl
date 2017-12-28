@@ -1,4 +1,4 @@
-
+#moved some functionality to GLFW.jl/extensions.jl These should probably get implemented for all the supported backends?
 """
 Callback which can be used to catch OpenGL errors.
 """
@@ -25,8 +25,6 @@ global const _openglerrorcallback = cfunction(
     openglerrorcallback, Void,
     (GLenum, GLenum,GLuint, GLenum, GLsizei, Ptr{GLchar}, Ptr{Void})
 )
-
-
 """
 Screen constructor cnstructing a new screen from a parant screen.
 """
@@ -114,145 +112,11 @@ function standard_callbacks()
     ]
 end
 
-"""
-Tries to create sensible context hints!
-Taken from lessons learned at:
-[GLFW](http://www.glfw.org/docs/latest/window.html)
-"""
-function standard_context_hints(major, minor)
-    # this is spaar...Modern OpenGL !!!!
-    major < 3 && error("OpenGL major needs to be at least 3.0. Given: $major")
-    # core profile is only supported for OpenGL 3.2+ (and a must for OSX, so
-    # for the sake of homogenity, we try to default to it for everyone!)
-    if (major > 3 || (major == 3 && minor >= 2 ))
-        profile = GLFW.OPENGL_CORE_PROFILE
-    else
-        profile = GLFW.OPENGL_ANY_PROFILE
-    end
-    [
-        (GLFW.CONTEXT_VERSION_MAJOR, major),
-        (GLFW.CONTEXT_VERSION_MINOR, minor),
-        (GLFW.OPENGL_FORWARD_COMPAT, GL_TRUE),
-        (GLFW.OPENGL_PROFILE, profile)
-    ]
-end
-
-"""
-Takes half the resolution of the primary monitor.
-This should make for sensible defaults!
-"""
-function standard_screen_resolution()
-    w, h = primarymonitorresolution()
-    (div(w,2), div(h,2)) # half of total resolution seems like a good fit!
-end
-
-
-
-"""
-Standard window hints for creating a plain context without any multisampling
-or extra buffers beside the color buffer
-"""
-function standard_window_hints()
-    [
-        (GLFW.SAMPLES,      0),
-        (GLFW.DEPTH_BITS,   0),
-
-        (GLFW.ALPHA_BITS,   8),
-        (GLFW.RED_BITS,     8),
-        (GLFW.GREEN_BITS,   8),
-        (GLFW.BLUE_BITS,    8),
-
-        (GLFW.STENCIL_BITS, 0),
-        (GLFW.AUX_BUFFERS,  0)
-    ]
-end
-
-
-full_screen_usage_message() = """
-Keyword arg fullscreen accepts:
-    Integer: The number of the Monitor to Select
-    Bool: if true, primary monitor gets fullscreen, false no fullscren (default)
-    GLFW.Monitor: Fullscreens on the passed monitor
-"""
-
-"""
-Function to create a pure GLFW OpenGL window
-"""
-function create_glcontext(
-        name = "GLWindow";
-        resolution = standard_screen_resolution(),
-        debugging = false,
-        major = 3,
-        minor = 3,# this is what GLVisualize needs to offer all features
-        windowhints = standard_window_hints(),
-        contexthints = standard_context_hints(major, minor),
-        visible = true,
-        focus = false,
-        fullscreen = false,
-        monitor = nothing
-    )
-    # we create a new context, so we need to clear the shader cache.
-    # TODO, cache shaders in GLAbstraction per GL context
-    GLFW.WindowHint(GLFW.VISIBLE, visible)
-    GLFW.WindowHint(GLFW.FOCUSED, focus)
-    GLAbstraction.empty_shader_cache!()
-    for ch in contexthints
-        GLFW.WindowHint(ch[1], ch[2])
-    end
-    for wh in windowhints
-        GLFW.WindowHint(wh[1], wh[2])
-    end
-
-    @static if is_apple()
-        if debugging
-            warn("OpenGL debug message callback not available on osx")
-            debugging = false
-        end
-    end
-
-    GLFW.WindowHint(GLFW.OPENGL_DEBUG_CONTEXT, Cint(debugging))
-
-    monitor = if monitor == nothing
-        GLFW.GetPrimaryMonitor()
-    elseif isa(monitor, Integer)
-        GLFW.GetMonitors()[monitor]
-    elseif isa(monitor, GLFW.Monitor)
-        monitor
-    else
-        error("Monitor needs to be nothing, int, or GLFW.Monitor. Found: $monitor")
-    end
-
-    window = GLFW.CreateWindow(resolution..., String(name))
-
-    if fullscreen
-        GLFW.SetKeyCallback(window, (_1, button, _2, _3, _4) -> begin
-            button == GLFW.KEY_ESCAPE && GLWindow.make_windowed!(window)
-        end)
-        GLWindow.make_fullscreen!(window, monitor)
-    end
-
-    GLFW.MakeContextCurrent(window)
-    # tell GLAbstraction that we created a new context.
-    # This is important for resource tracking
-    GLAbstraction.new_context()
-
-    debugging && glDebugMessageCallbackARB(_openglerrorcallback, C_NULL)
-    window
-end
-
 make_fullscreen!(screen::Screen, monitor::GLFW.Monitor = GLFW.GetPrimaryMonitor()) = make_fullscreen!(nativewindow(screen), monitor)
-function make_fullscreen!(window::GLFW.Window, monitor::GLFW.Monitor = GLFW.GetPrimaryMonitor())
-    vidmodes = GLFW.GetVideoModes(monitor)[end]
-    GLFW.SetWindowMonitor(window, monitor, 0, 0, vidmodes.width, vidmodes.height, GLFW.DONT_CARE)
-    return
-end
+
 
 make_windowed!(screen::Screen) = make_windowed!(nativewindow(screen))
-function make_windowed!(window::GLFW.Window)
-    width, height = standard_screen_resolution()
-    GLFW.SetWindowMonitor(window, GLFW.Monitor(C_NULL), 0, 0, width, height, GLFW.DONT_CARE)
-    return
-end
+
 
 """
 Most basic Screen constructor, which is usually used to create a parent screen.
@@ -414,14 +278,7 @@ function set_visibility!(glc::AbstractContext, visible::Bool)
     end
     return
 end
-function set_visibility!(screen::GLFW.Window, visible::Bool)
-    if visible
-        GLFW.ShowWindow(screen)
-    else !visible
-        GLFW.HideWindow(screen)
-    end
-    return
-end
+
 
 
 widths(s::Screen) = widths(value(s.area))
@@ -434,21 +291,14 @@ Check if a Screen is opened.
 function Base.isopen(window::Screen)
     isopen(nativewindow(window))
 end
-function Base.isopen(window::GLFW.Window)
-    window.handle == C_NULL && return false
-    !GLFW.WindowShouldClose(window)
-end
+
 """
 Swap the framebuffers on the Screen.
 """
 function swapbuffers(window::Screen)
     swapbuffers(nativewindow(window))
 end
-function swapbuffers(window::GLFW.Window)
-    window.handle == C_NULL && return
-    GLFW.SwapBuffers(window)
-    return
-end
+
 function Base.resize!(x::Screen, w::Integer, h::Integer)
     nw = GLWindow.nativewindow(x)
     if isroot(x)
@@ -460,17 +310,9 @@ function Base.resize!(x::Screen, w::Integer, h::Integer)
     wf, hf = round.(f .* Vec(w, h))
     push!(x.area, SimpleRectangle(area.x, area.y, Int(wf), Int(hf)))
 end
-function Base.resize!(x::GLFW.Window, w::Integer, h::Integer)
-    GLFW.SetWindowSize(x, w, h)
-end
-
 """
 Poll events on the screen which will propogate signals through react.
 """
-function poll_glfw()
-    GLFW.PollEvents()
-end
-
 function mouse2id(s::Screen)
     s.inputs[:mouse2id]
 end
