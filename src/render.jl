@@ -35,9 +35,14 @@ function reactive_run_till_now()
         yield()
     end
 end
-function renderloop(window::Screen; framerate = 1/60,
-    prerender = () -> nothing)
+function renderloop(
+        window::Screen; framerate = 1/60,
+        prerender = () -> nothing
+    )
+    nw = nativewindow(window)
     while isopen(window)
+        GLFW.MakeContextCurrent(nw)
+        GLAbstraction.make_context_current(nw)
         t = time()
         prerender()
         render_frame(window)
