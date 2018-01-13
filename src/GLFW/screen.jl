@@ -2,9 +2,9 @@
 mutable struct GLFWScreen <: Screen
     name        ::Symbol
     id          ::Int
+    window      ::GLFW.Window
     area        ::Tuple{Int,Int}
     parent      ::GLFWScreen
-    window      ::GLFW.Window
     children    ::Vector{GLFWScreen}
     callbacks   ::Dict{Symbol, Any}
     visible     ::Bool # if window is visible. Will still render
@@ -12,6 +12,7 @@ mutable struct GLFWScreen <: Screen
     clear       ::Bool
     function GLFWScreen(
             name        ::Symbol,
+            window      ::GLFW.Window,
             area        ::NamedTuple,
             parent      ::Union{Screen, Void},
             children    ::Vector{Screen},
@@ -24,6 +25,7 @@ mutable struct GLFWScreen <: Screen
             screen.parent = parent
         end
         screen.name = name
+        screen.window = window
         screen.area = area
         screen.children = children
         screen.callbacks = callbacks
@@ -77,12 +79,9 @@ function GLFWScreen(name = "GLWindow";
     area = (x=0, y=0, w=resolution[1], h=resolution[2])
     GLFW.SwapInterval(0) # deactivating vsync seems to make everything quite a bit smoother
     screen = Screen(
-        Symbol(name), area, nothing,
+        Symbol(name), window, area, nothing,
         Screen[], callback_dict,
         (), hidden, clear
-    )
-    signal_dict[:mouseinside] = droprepeats(
-        const_lift(isinside, screen, signal_dict[:mouseposition])
     )
     screen
 end
@@ -97,7 +96,8 @@ function GLFWScreen(
         hidden = parent.hidden,
         clear::Bool = parent.clear,
     )
-    screen = GLFWScreen(name, area, parent, children, callbacks, hidden, clear)
+    #i'm not sure about the parent.window here!
+    screen = GLFWScreen(name, parent.window, area, parent, children, callbacks, hidden, clear)
     push!(parent.children, screen)
     screen
 end
