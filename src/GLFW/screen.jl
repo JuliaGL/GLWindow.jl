@@ -7,9 +7,6 @@ mutable struct GLFWScreen <: Screen
     window      ::GLFW.Window
     children    ::Vector{GLFWScreen}
     callbacks   ::Dict{Symbol, Any}
-    # isleaf_signal ::Dict{Symbol, Bool}
-    # renderlist_fxaa::Tuple # a tuple of specialized renderlists
-    # renderlist     ::Tuple # a tuple of specialized renderlists
     visible     ::Bool # if window is visible. Will still render
     hidden      ::Bool # if window is hidden. Will not render
     clear       ::Bool
@@ -19,28 +16,17 @@ mutable struct GLFWScreen <: Screen
             parent      ::Union{Screen, Void},
             children    ::Vector{Screen},
             callbacks   ::Dict{Symbol, Any},
-            # renderlist  ::Tuple,
             hidden,
             clear       ::Bool,
-            color       ::Colorant,
-            # stroke      ::Tuple,
-            # cameras     ::Dict{Symbol, Any},
         )
         screen = new()
         if parent != nothing
             screen.parent = parent
         end
-        # leaves = Dict{Symbol, Bool}()
-        # for (k, v) in callbacks
-        #     leaves[k] = isempty(v.actions)
-        # end
         screen.name = name
         screen.area = area
         screen.children = children
         screen.callbacks = callbacks
-        # screen.isleaf_signal = leaves
-        # screen.renderlist = renderlist
-        # screen.renderlist_fxaa = ()
         screen.hidden = hidden
         screen.clear = clear
         screen.id = new_id()
