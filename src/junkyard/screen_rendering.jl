@@ -1,4 +1,5 @@
 
+
 function clear_all!(window)
     wh = widths(window)
     glViewport(0,0, wh...)
@@ -14,27 +15,6 @@ function clear_all!(window)
 end
 
 
-"""
-Sleep is pretty imprecise. E.g. anything under `0.001s` is not guaranteed to wake
-up before `0.001s`. So this timer is pessimistic in the way, that it will never
-sleep more than `time`.
-"""
-@inline function sleep_pessimistic(sleep_time)
-    st = convert(Float64,sleep_time) - 0.002
-    start_time = time()
-    while (time() - start_time) < st
-        sleep(0.001) # sleep for the minimal amount of time
-    end
-end
-function reactive_run_till_now()
-    max_yield = Base.n_avail(Reactive._messages) * 2
-    for i=1:max_yield
-        if !isready(Reactive._messages)
-            break
-        end
-        yield()
-    end
-end
 function renderloop(window::Screen; framerate = 1/60,
     prerender = () -> nothing)
     while isopen(window)
@@ -49,7 +29,6 @@ function renderloop(window::Screen; framerate = 1/60,
     destroy!(window)
     return
 end
-
 
 function waiting_renderloop(screen; framerate = 1/60,
     prerender = () -> nothing)
@@ -67,14 +46,6 @@ function waiting_renderloop(screen; framerate = 1/60,
         sleep_pessimistic(framerate - t)
     end
     destroy!(screen)
-    return
-end
-
-function shape_prerender()
-    glDisable(GL_DEPTH_TEST)
-    glDepthMask(GL_FALSE)
-    glDisable(GL_CULL_FACE)
-    glDisable(GL_BLEND)
     return
 end
 

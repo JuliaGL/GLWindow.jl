@@ -9,6 +9,7 @@ function window_open(window, s::Signal{Bool}=Signal(true))
     end)
     s
 end
+
 """
 Size of the window. Must not correlate to the real pixel size.
 This is why there is also framebuffer_size.
@@ -145,26 +146,14 @@ function entered_window(window, s::Signal{Bool}=Signal(false))
     s
 end
 
-function register_callbacks(window::Screen, callbacks::Vector{Function})
-    register_callbacks(window.nativewindow, callbacks)
-end
-
+#These I originally put in GLFW but got removed because too magical. I think that's fine, they seem perfect here too
 """
-Standard set of callback functions
+Takes a screen and registers a list of callback functions.
+Returns a dict{Symbol, Signal}(name_of_callback => signal)
 """
-function standard_callbacks()
-    Function[
-        window_open,
-        window_size,
-        window_position,
-        keyboard_buttons,
-        mouse_buttons,
-        dropped_files,
-        framebuffer_size,
-        unicode_input,
-        cursor_position,
-        scroll,
-        hasfocus,
-        entered_window,
-    ]
+function register_callbacks(window::GLFW.Window, callbacks::Vector{Function})
+    tmp = map(callbacks) do f
+        (Symbol(last(split(string(f),"."))), f(window))
+    end
+    Dict{Symbol, Any}(tmp)
 end

@@ -1,30 +1,72 @@
-#moved some functionality to GLFW.jl/extensions.jl These should probably get implemented for all the supported backends?
-"""
-Callback which can be used to catch OpenGL errors.
-"""
-function openglerrorcallback(
-        source::GLenum, typ::GLenum,
-        id::GLuint, severity::GLenum,
-        length::GLsizei, message::Ptr{GLchar},
-        userParam::Ptr{Void}
-    )
-    errormessage = """
-         ________________________________________________________________
-        |
-        | OpenGL Error!
-        | source: $(GLENUM(source).name) :: type: $(GLENUM(typ).name)
-        |  $(String(message, length))
-        |________________________________________________________________
-    """
-    output = typ == GL_DEBUG_TYPE_ERROR ? error : info
-    output(errormessage)
-    nothing
+#Came from GLWindow/types.jl
+using Base.RefValue
+#This should be put in some kind of globals.jl file, like where the contexts are being counted.
+const screen_id_counter = RefValue(0)
+# start from new and hope we don't display all displays at once.
+# TODO make it clearer if we reached max num, or if we just created
+# a lot of small screens and display them simultanously
+new_id() = (screen_id_counter[] = mod1(screen_id_counter[] + 1, 255); screen_id_counter[])[]
+
+mutable struct Screen
+    name        ::Symbol
+    area        ::Signal{SimpleRectangle{Int}}
+    parent      ::Screen
+    children    ::Vector{Screen}
+    inputs      ::Dict{Symbol, Any}
+    isleaf_signal ::Dict{Symbol, Bool}
+    renderlist_fxaa::Tuple # a tuple of specialized renderlists
+    renderlist     ::Tuple # a tuple of specialized renderlists
+    visible     ::Bool # if window is visible. Will still render
+    hidden      ::Signal{Bool} # if window is hidden. Will not render
+    clear       ::Bool
+    color       ::RGBA{Float32}
+    stroke      ::Tuple{Float32, RGBA{Float32}}
+
+    cameras     ::Dict{Symbol, Any}
+
+    glcontext   ::AbstractContext
+    id          ::Int
+
+    function Screen(
+            name        ::Symbol,
+            area        ::Signal{SimpleRectangle{Int}},
+            parent      ::Union{Screen, Void},
+            children    ::Vector{Screen},
+            inputs      ::Dict{Symbol, Any},
+            renderlist  ::Tuple,
+            hidden,
+            clear       ::Bool,
+            color       ::Colorant,
+            stroke      ::Tuple,
+            cameras     ::Dict{Symbol, Any},
+            context     ::AbstractContext
+        )
+        screen = new()
+        if parent != nothing
+            screen.parent = parent
+        end
+        leaves = Dict{Symbol, Bool}()
+        for (k, v) in inputs
+            leaves[k] = isempty(v.actions)
+        end
+        screen.name = name
+        screen.area = area
+        screen.children = children
+        screen.inputs = inputs
+        screen.isleaf_signal = leaves
+        screen.renderlist = renderlist
+        screen.renderlist_fxaa = ()
+        screen.hidden = isa(hidden, Signal) ? hidden : Signal(hidden)
+        screen.clear = clear
+        screen.color = RGBA{Float32}(color)
+        screen.stroke = (Float32(stroke[1]), RGBA{Float32}(stroke[2]))
+        screen.cameras = cameras
+        screen.glcontext = context
+        screen.id = new_id()
+        screen
+    end
 end
 
-global const _openglerrorcallback = cfunction(
-    openglerrorcallback, Void,
-    (GLenum, GLenum,GLuint, GLenum, GLsizei, Ptr{GLchar}, Ptr{Void})
-)
 """
 Screen constructor cnstructing a new screen from a parant screen.
 """
@@ -63,60 +105,6 @@ function Screen(
     push!(parent.children, screen)
     screen
 end
-
-
-"""
-On OSX retina screens, the window size is different from the
-pixel size of the actual framebuffer. With this function we
-can find out the scaling factor.
-"""
-function scaling_factor(window::Vec{2, Int}, fb::Vec{2, Int})
-    (window[1] == 0 || window[2] == 0) && return Vec{2, Float64}(1.0)
-    Vec{2, Float64}(fb) ./ Vec{2, Float64}(window)
-end
-function scaling_factor(nw)
-    w, fb = GLFW.GetWindowSize(nw), GLFW.GetFramebufferSize(nw)
-    scaling_factor(Vec{2, Int}(w), Vec{2, Int}(fb))
-end
-
-"""
-Correct OSX scaling issue and move the 0,0 coordinate to left bottom.
-"""
-function corrected_coordinates(
-        window_size::Signal{Vec{2,Int}},
-        framebuffer_width::Signal{Vec{2,Int}},
-        mouse_position::Vec{2,Float64}
-    )
-    s = scaling_factor(window_size.value, framebuffer_width.value)
-    Vec{2,Float64}(mouse_position[1], window_size.value[2] - mouse_position[2]) .* s
-end
-
-
-"""
-Standard set of callback functions
-"""
-function standard_callbacks()
-    Function[
-        window_open,
-        window_size,
-        window_position,
-        keyboard_buttons,
-        mouse_buttons,
-        dropped_files,
-        framebuffer_size,
-        unicode_input,
-        cursor_position,
-        scroll,
-        hasfocus,
-        entered_window,
-    ]
-end
-
-make_fullscreen!(screen::Screen, monitor::GLFW.Monitor = GLFW.GetPrimaryMonitor()) = make_fullscreen!(nativewindow(screen), monitor)
-
-
-make_windowed!(screen::Screen) = make_windowed!(nativewindow(screen))
-
 
 """
 Most basic Screen constructor, which is usually used to create a parent screen.
@@ -198,45 +186,22 @@ function Screen(name = "GLWindow";
     screen
 end
 
-"""
-Function that creates a screenshot from `window` and saves it to `path`.
-You can choose the channel of the framebuffer, which is usually:
-`color`, `depth` and `objectid`
-"""
-function screenshot(window; path="screenshot.png", channel=:color)
-    save(path, screenbuffer(window, channel), true)
-end
 
 """
-Returns the contents of the framebuffer of `window` as a Julia Array.
-You can choose the channel of the framebuffer, which is usually:
-`color`, `depth` and `objectid`
+Takes a screen and registers a list of callback functions.
+Returns a dict{Symbol, Signal}(name_of_callback => signal)
 """
-function screenbuffer(window, channel = :color)
-    fb = framebuffer(window)
-    channels = fieldnames(fb)[2:end]
-    area = abs_area(window)
-    w = widths(area)
-    x1, x2 = max(area.x, 1), min(area.x + w[1], size(fb.color, 1))
-    y1, y2 = max(area.y, 1), min(area.y + w[2], size(fb.color, 2))
-    if channel == :depth
-        w, h = x2 - x1 + 1, y2 - y1 + 1
-        data = Matrix{Float32}(w, h)
-        glBindFramebuffer(GL_FRAMEBUFFER, fb.id[1])
-        glDisable(GL_SCISSOR_TEST)
-        glDisable(GL_STENCIL_TEST)
-        glReadPixels(x1 - 1, y1 - 1, w, h, GL_DEPTH_COMPONENT, GL_FLOAT, data)
-        return rotl90(data)
-    elseif channel in channels
-        buff = gpu_data(getfield(fb, channel))
-        img = view(buff, x1:x2, y1:y2)
-        if channel == :color
-            img = RGB{N0f8}.(img)
-        end
-        return rotl90(img)
-    end
-    error("Channel $channel does not exist. Only these channels are available: $channels")
+function register_callbacks(window::Screen, callbacks::Vector{Function})
+    register_callbacks(window.nativewindow, callbacks)
 end
+
+
+
+make_fullscreen!(screen::Screen, monitor::GLFW.Monitor = GLFW.GetPrimaryMonitor()) = make_fullscreen!(nativewindow(screen), monitor)
+
+
+make_windowed!(screen::Screen) = make_windowed!(nativewindow(screen))
+
 
 """
 If hidden, window will stop rendering.
@@ -271,32 +236,24 @@ function set_visibility!(screen::Screen, visible::Bool)
     set_visibility!(screen.glcontext, visible)
     return
 end
-function set_visibility!(glc::AbstractContext, visible::Bool)
-    if glc.visible != visible
-        set_visibility!(glc.window, visible)
-        glc.visible = visible
-    end
-    return
-end
-
-
 
 widths(s::Screen) = widths(value(s.area))
 framebuffer(s::Screen) = s.glcontext.framebuffer
 nativewindow(s::Screen) = s.glcontext.window
 
+
 """
 Check if a Screen is opened.
 """
-function Base.isopen(window::Screen)
-    isopen(nativewindow(window))
+function Base.isopen(screen::Screen)
+    isopen(nativewindow(screen))
 end
 
 """
 Swap the framebuffers on the Screen.
 """
-function swapbuffers(window::Screen)
-    swapbuffers(nativewindow(window))
+function swapbuffers(screen::Screen)
+    swapbuffers(nativewindow(screen))
 end
 
 function Base.resize!(x::Screen, w::Integer, h::Integer)
@@ -357,17 +314,6 @@ function destroy!(screen::Screen)
     return
 end
 
-get_id(x::Integer) = x
-get_id(x::RenderObject) = x.id
-function delete_robj!(list, robj)
-    for (i, id) in enumerate(list)
-        if get_id(id) == robj.id
-            splice!(list, i)
-            return true, i
-        end
-    end
-    false, 0
-end
 function Base.delete!(screen::Screen, c::Composable)
     deleted = false
     for elem in GLAbstraction.extract_renderable(c)
@@ -387,12 +333,6 @@ function Base.delete!(screen::Screen, robj::RenderObject)
     false
 end
 
-function GLAbstraction.robj_from_camera(window, camera)
-    cam = window.cameras[camera]
-    return filter(renderlist(window)) do robj
-        robj[:projection] == cam.projection
-    end
-end
 
 function isroot(s::Screen)
     !isdefined(s, :parent)
@@ -430,3 +370,40 @@ function Base.push!(screen::Screen, robj::RenderObject{Pre}) where Pre
     in(robj, getfield(screen, sym)[index]) || push!(getfield(screen, sym)[index], robj)
     nothing
 end
+
+#=
+Functions that are derived from Base or other packages
+=#
+
+function Base.show(io::IO, m::Screen)
+    println(io, "name: ", m.name)
+    println(io, "children: ", length(m.children))
+    println(io, "Inputs:")
+    for (key, value) in m.inputs
+        println(io, "  ", key, " => ", typeof(value))
+    end
+end
+
+"""
+mouse position is in coorditnates relative to `screen`
+"""
+function GeometryTypes.isinside(screen::Screen, mpos)
+    isinside(zeroposition(value(screen.area)), mpos[1], mpos[2]) || return false
+    for s in screen.children
+        # if inside any children, it's not inside screen
+        isinside(value(s.area), mpos[1], mpos[2]) && return false
+    end
+    true
+end
+
+"""
+Args: `screens_mpos` -> Tuple{Vector{Screen}, Vec{2,T}}
+"""
+function isoutside(screens_mouseposition)
+    screens, mpos = screens_mouseposition
+    for screen in screens
+        isinside(screen, mpos) && return false
+    end
+    true
+end
+
