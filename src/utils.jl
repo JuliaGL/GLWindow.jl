@@ -80,3 +80,5 @@ sleep more than `time`.
         sleep(0.001) # sleep for the minimal amount of time
     end
 end
+
+zeroposition(area::NamedTuple) = (x=0, y=0, w=area[:w], h=area[:h])

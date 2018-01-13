@@ -1,7 +1,6 @@
 __precompile__(true)
 module GLWindow
 
-using ModernGL
 using GLAbstraction
 using GLFW
 using Reactive
