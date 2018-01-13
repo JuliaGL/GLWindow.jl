@@ -127,3 +127,8 @@ function destroywindow!(screen::GLFWScreen)
 end
 
 make_fullscreen!(screen::GLFWScreen, monitor::GLFW.Monitor = GLFW.GetPrimaryMonitor()) = make_fullscreen!(nativewindow(screen), monitor)
+
+function scaling_factor(nw)
+    w, fb = GLFW.GetWindowSize(nw), GLFW.GetFramebufferSize(nw)
+    scaling_factor((w,w), (fb,fb))
+end

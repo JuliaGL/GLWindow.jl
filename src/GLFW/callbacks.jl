@@ -151,3 +151,53 @@ function register_callbacks(window::Window, callbacks::Vector{Function})
     end
     Dict{Symbol, Any}(tmp)
 end
+
+#Came from GLWindow/events.jl
+"""
+Builds a Set of keys, accounting for released and pressed keys
+"""
+function currently_pressed_keys(v0::Set{Int}, button_action_mods)
+    button, action, mods = button_action_mods
+    if button != GLFW.KEY_UNKNOWN
+        if action == GLFW.PRESS
+            push!(v0, button)
+        elseif action == GLFW.RELEASE
+            delete!(v0, button)
+        elseif action == GLFW.REPEAT
+            # nothing needs to be done, besides returning the same set of keys
+        else
+            error("Unrecognized enum value for GLFW button press action: $action")
+        end
+    end
+    return v0
+end
+
+function remove_scancode(button_scancode_action_mods)
+    button, scancode, action, mods = button_scancode_action_mods
+    button, action, mods
+end
+isreleased(button) = button[2] == GLFW.RELEASE
+isdown(button) = button[2] == GLFW.PRESS
+
+#question: do we need this?
+# """
+# Creates high level signals from the raw GLFW button signals.
+# Returns a dictionary with button released and down signals.
+# It also creates a signal, which is the set of all currently pressed buttons.
+# `name` is used to name the dictionary keys.
+# `buttons` is a tuple of (button, action, mods)::NTuple{3, Int}
+# """
+# function button_signals(buttons::NTuple{3, Int}, name::Symbol)
+#     keyset = Set{Int}()
+#     sizehint!(keyset, 10) # make it less suspicable to growing/shrinking
+#     released = filter(isreleased, buttons.value, buttons)
+#     down     = filter(isdown, buttons.value, buttons)
+#     Dict{Symbol, Any}(
+#         Symbol("$(name)_released") => map(first, released),
+#         Symbol("$(name)_down")     => map(first, down),
+#         Symbol("$(name)s_pressed") => foldp(
+#             currently_pressed_keys, keyset, buttons
+#         )
+#     )
+# end
+
