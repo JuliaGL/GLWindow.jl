@@ -505,7 +505,7 @@ function destroy!(screen::Screen)
         end
         if nw.handle != C_NULL
             GLFW.DestroyWindow(nw)
-            nw.handle = C_NULL
+            # nw.handle = C_NULL
         end
     else # delete from parent
         filter!(s-> !(s===screen), screen.parent.children) # remove from parent

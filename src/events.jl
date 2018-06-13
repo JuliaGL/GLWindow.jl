@@ -17,7 +17,7 @@ end
 
 function add_complex_signals!(screen)
     @materialize keyboard_buttons, mouse_buttons = screen.inputs
-    
+
     no_scancode = map(remove_scancode, keyboard_buttons)
 
     button_s = merge(
@@ -47,12 +47,12 @@ Builds a Set of keys, accounting for released and pressed keys
 """
 function currently_pressed_keys(v0::Set{Int}, button_action_mods)
     button, action, mods = button_action_mods
-    if button != GLFW.KEY_UNKNOWN
-        if action == GLFW.PRESS
+    if button != Int(GLFW.KEY_UNKNOWN)
+        if action == Int(GLFW.PRESS)
             push!(v0, button)
-        elseif action == GLFW.RELEASE
+        elseif action == Int(GLFW.RELEASE)
             delete!(v0, button)
-        elseif action == GLFW.REPEAT
+        elseif action == Int(GLFW.REPEAT)
             # nothing needs to be done, besides returning the same set of keys
         else
             error("Unrecognized enum value for GLFW button press action: $action")
